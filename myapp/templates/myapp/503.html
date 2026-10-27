@@ -1,0 +1,28 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}503 — Service Unavailable | DevHelp AI{% endblock %}
+
+{% block content %}
+<div class="error-page-wrapper">
+    <div class="card error-page-card">
+        <div class="error-badge-pill error-badge-warning">HTTP 503</div>
+        <h1 class="error-page-title">Service Temporarily Unavailable</h1>
+        <p class="error-page-desc">The server is temporarily overloaded or undergoing maintenance. Normal operations will resume shortly.</p>
+        
+        <div class="error-solutions-box">
+            <h3>Recommendations</h3>
+            <ul>
+                <li>Please reload the page in 1–2 minutes.</li>
+                <li>Check our <a href="{% url 'health_check' %}" target="_blank">/health/</a> status endpoint for real-time service readiness.</li>
+                <li>Submit a support ticket if downtime continues beyond normal maintenance windows.</li>
+            </ul>
+        </div>
+
+        <div class="error-actions-row">
+            <a href="{% url 'home' %}" class="btn btn-primary">Return to Homepage</a>
+            <a href="{% url 'error_detail' '503' %}" class="btn btn-secondary">Read 503 Guide</a>
+            <button type="button" class="btn btn-text" onclick="toggleChatWindow(true)">Ask Assistant</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

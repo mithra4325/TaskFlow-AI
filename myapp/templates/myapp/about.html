@@ -1,0 +1,169 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}About — TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="about-page-wrapper">
+    <!-- Header -->
+    <section class="card about-header-card">
+        <h1 class="page-title">About TaskFlow AI</h1>
+        <p class="page-subtitle">TaskFlow AI productivity dashboard featuring the DevHelp AI support assistant.</p>
+    </section>
+
+    <!-- Application Modules Grid -->
+    <section class="card">
+        <div class="card-header-line">
+            <div>
+                <h2 class="card-section-title">Application Modules</h2>
+            </div>
+        </div>
+
+        <div class="modules-overview-grid">
+            <div class="module-card">
+                <div class="module-body">
+                    <h3 class="module-title">Dashboard</h3>
+                    <p class="module-desc">Overview of task metrics, completion progress, overdue warnings, and upcoming deadlines.</p>
+                    <a href="{% url 'dashboard' %}" class="module-link">View Dashboard &rarr;</a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-body">
+                    <h3 class="module-title">My Tasks</h3>
+                    <p class="module-desc">Task management with priority levels, categories, due dates, filtering, search, and sorting.</p>
+                    <a href="{% url 'task_list' %}" class="module-link">Manage Tasks &rarr;</a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-body">
+                    <h3 class="module-title">Categories</h3>
+                    <p class="module-desc">Organize deliverables across Work, Study, Personal, and Other workstreams with progress tracking.</p>
+                    <a href="{% url 'categories' %}" class="module-link">View Categories &rarr;</a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-body">
+                    <h3 class="module-title">FAQs</h3>
+                    <p class="module-desc">SQL-backed knowledge base with answers to common web development and Django questions.</p>
+                    <a href="{% url 'faq_list' %}" class="module-link">Search FAQs &rarr;</a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-body">
+                    <h3 class="module-title">Error Code Guide</h3>
+                    <p class="module-desc">Troubleshooting references for HTTP status codes (400, 401, 403, 404, 429, 500, 503) and custom errors.</p>
+                    <a href="{% url 'error_guide' %}" class="module-link">Diagnose Errors &rarr;</a>
+                </div>
+            </div>
+
+            <div class="module-card">
+                <div class="module-body">
+                    <h3 class="module-title">Support</h3>
+                    <p class="module-desc">Confidential ticket submission with reference code tracking stored in SQL.</p>
+                    <a href="{% url 'support' %}" class="module-link">Support Hub &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture & Tech Stack -->
+    <div class="about-two-col">
+        <section class="card">
+            <h2 class="card-section-title">Architecture</h2>
+            <div class="arch-bullets">
+                <div class="arch-bullet">
+                    <strong>Django Framework:</strong> MVT architecture with ORM models, CSRF protection, form validation, and structured request logging.
+                </div>
+                <div class="arch-bullet">
+                    <strong>Database A (SQL):</strong> Relational storage (SQLite locally, PostgreSQL in deployment) for Tasks, FAQs, Error Codes, and Support Tickets.
+                </div>
+                <div class="arch-bullet">
+                    <strong>Database B (MongoDB):</strong> Dedicated NoSQL storage for chat session logs and user feedback ratings when configured.
+                </div>
+                <div class="arch-bullet">
+                    <strong>Gemini AI Assistant:</strong> Context-grounded assistant with fallbacks for offline and unconfigured states.
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2 class="card-section-title">Technology Stack</h2>
+            <div class="tech-stack-pills">
+                <span class="tech-pill">Python 3.14</span>
+                <span class="tech-pill">Django 6.0</span>
+                <span class="tech-pill">Google GenAI SDK</span>
+                <span class="tech-pill">SQLite / PostgreSQL</span>
+                <span class="tech-pill">PyMongo</span>
+                <span class="tech-pill">WhiteNoise</span>
+                <span class="tech-pill">Vanilla CSS</span>
+            </div>
+
+            <h3 class="mini-section-label" style="margin-top: 1.25rem;">Developer</h3>
+            <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.6;">
+                Built by a software development student demonstrating full-stack Django architecture, multi-database integration, and AI support tooling.
+            </p>
+        </section>
+    </div>
+
+    <!-- Support Ticket Submission Form Section -->
+    <section class="card form-card-expanded" id="ticket-form-section">
+        <div class="card-header-line">
+            <div>
+                <h2 class="card-section-title">Submit a Support Ticket</h2>
+            </div>
+            <a href="{% url 'support' %}" class="btn btn-sm btn-secondary">Support Page &rarr;</a>
+        </div>
+
+        <form method="POST" action="{% url 'about' %}" class="support-ticket-form" id="support-ticket-form">
+            {% csrf_token %}
+            <!-- Honeypot anti-spam -->
+            <div style="display:none;">{{ form.honey_field }}</div>
+
+            {% if form.non_field_errors %}
+            <div class="alert alert-error" style="margin-bottom: 1.25rem; padding: 0.75rem 1rem; border-radius: 6px; background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">
+                {% for err in form.non_field_errors %}
+                    <p style="margin:0; font-size: 0.9rem;">{{ err }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="ticket-subject-input" class="form-label">Subject <span class="required">*</span></label>
+                {{ form.subject }}
+                {% if form.subject.errors %}<div class="field-error">{{ form.subject.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="ticket-name-input" class="form-label">Name (Optional)</label>
+                    {{ form.name }}
+                </div>
+                <div class="form-group">
+                    <label for="ticket-email-input" class="form-label">Email (Optional)</label>
+                    {{ form.email }}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="ticket-error-input" class="form-label">Related Error Code (Optional)</label>
+                {{ form.related_error_code }}
+            </div>
+
+            <div class="form-group">
+                <label for="ticket-desc-input" class="form-label">Description <span class="required">*</span></label>
+                {{ form.description }}
+                {% if form.description.errors %}<div class="field-error">{{ form.description.errors.0 }}</div>{% endif %}
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-block" id="btn-submit-ticket">
+                    Submit Ticket
+                </button>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

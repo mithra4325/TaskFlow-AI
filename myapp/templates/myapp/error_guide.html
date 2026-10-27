@@ -1,0 +1,91 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Software Error Code Guide — DevHelp AI{% endblock %}
+
+{% block content %}
+<div class="errors-page-container">
+    <!-- Header -->
+    <div class="page-hero">
+        <h1 class="page-title">Error Code Guide</h1>
+        <p class="page-subtitle">Diagnostic explanations and troubleshooting steps for HTTP and application error codes.</p>
+    </div>
+
+    <!-- Error Codes Search Toolbar -->
+    <section class="toolbar-section">
+        <form method="GET" action="{% url 'error_guide' %}" class="filter-search-form" id="error-search-form">
+            {% if pkg_query %}<input type="hidden" name="pkg" value="{{ pkg_query }}">{% endif %}
+            <div class="search-input-group">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input 
+                    type="search" 
+                    name="q" 
+                    value="{{ search_query }}" 
+                    placeholder="Search" 
+                    class="search-input"
+                    id="error-search-input"
+                >
+                {% if search_query %}
+                    <a href="{% url 'error_guide' %}{% if pkg_query %}?pkg={{ pkg_query }}{% endif %}" class="search-clear-btn" title="Clear search">&times;</a>
+                {% endif %}
+            </div>
+        </form>
+    </section>
+
+    <!-- Error Cards Grid -->
+    <section class="errors-grid-section" aria-label="Error Codes Reference">
+        <div class="faq-list-count">
+            Displaying <strong>{{ total_count }}</strong> cataloged error code{{ total_count|pluralize }}
+        </div>
+
+        <div class="errors-main-grid">
+            {% for ec in error_codes %}
+                <article class="error-detail-card" id="error-code-{{ ec.code }}">
+                    <div class="error-card-header">
+                        <div class="code-badge-group">
+                            <span class="error-pill error-pill-{{ ec.code }}">{{ ec.code }}</span>
+                            <div>
+                                <h3 class="error-title-text">{{ ec.title }}</h3>
+                                {% if ec.status_code %}
+                                    <span class="status-tag">Standard HTTP {{ ec.status_code }}</span>
+                                {% else %}
+                                    <span class="status-tag custom-tag">DevHelp AI Site Code</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="error-desc-text">{{ ec.description }}</p>
+
+                    <div class="error-card-sections">
+                        <div class="section-block">
+                            <strong>Common Causes:</strong>
+                            <div class="text-preview">{{ ec.common_causes|linebreaksbr }}</div>
+                        </div>
+                        <div class="section-block">
+                            <strong>Troubleshooting Steps:</strong>
+                            <div class="text-preview">{{ ec.troubleshooting_steps|linebreaksbr }}</div>
+                        </div>
+                    </div>
+
+                    <div class="error-card-actions-bar">
+                        <a href="{% url 'error_detail' ec.code %}" class="btn btn-sm btn-secondary">
+                            Full Troubleshooting Guide &rarr;
+                        </a>
+                        <button type="button" class="btn btn-sm btn-primary" onclick="sendQuickPrompt('Explain Error {{ ec.code }} ({{ ec.title|escapejs }}) and how to solve it')">
+                            Ask AI to Troubleshoot
+                        </button>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="card empty-state">
+                    <p>No error codes found matching "{{ search_query }}".</p>
+                    <a href="{% url 'error_guide' %}" class="btn btn-secondary">Reset Search</a>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+</div>
+{% endblock %}

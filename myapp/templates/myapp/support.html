@@ -1,0 +1,161 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Support — TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="support-page-wrapper">
+    <!-- Header -->
+    <section class="card support-header-card">
+        <div class="header-line-flex">
+            <div>
+                <h1 class="page-title">Support</h1>
+                <p class="page-subtitle">Submit support requests and track ticket resolution status.</p>
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="toggleChatWindow(true)">
+                Ask Assistant First
+            </button>
+        </div>
+    </section>
+
+    <!-- Privacy Notice -->
+    <div class="privacy-notice-banner">
+        <div class="privacy-text">
+            <strong>Privacy Assurance:</strong>
+            Support tickets are stored in a private SQL database. Details are confidential and not displayed publicly.
+        </div>
+    </div>
+
+    <!-- Ticket Confirmation Card if Just Submitted -->
+    {% if submitted_ticket %}
+    <section class="card ticket-confirmation-card" id="ticket-confirmation-card">
+        <div class="confirmation-body">
+            <span class="badge badge-success">Ticket Created</span>
+            <h2 class="confirmation-title">Reference: <span class="ref-code">{{ submitted_ticket.reference }}</span></h2>
+            <p class="confirmation-desc">
+                Your request <em>"{{ submitted_ticket.subject }}"</em> has been recorded with status <strong>{{ submitted_ticket.get_status_display }}</strong>.
+                Save this reference code to check status anytime.
+            </p>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Two-Column Layout: Submit Form & Status Lookup -->
+    <div class="support-cols-grid">
+        <!-- Column 1: Submit New Support Ticket Form -->
+        <div class="support-col-form">
+            <section class="card form-card-expanded" id="ticket-form-section">
+                <div class="card-header-line">
+                    <div>
+                        <h2 class="card-section-title">Submit a Ticket</h2>
+                    </div>
+                </div>
+
+                <form method="POST" action="{% url 'support' %}" class="support-ticket-form" id="support-ticket-form">
+                    {% csrf_token %}
+                    <!-- Honeypot anti-spam -->
+                    <div style="display:none;">{{ form.honey_field }}</div>
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-error" style="margin-bottom: 1.25rem; padding: 0.75rem 1rem; border-radius: 6px; background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5;">
+                        {% for err in form.non_field_errors %}
+                            <p style="margin:0; font-size: 0.9rem;">{{ err }}</p>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="form-group">
+                        <label for="ticket-subject-input" class="form-label">Subject <span class="required">*</span></label>
+                        {{ form.subject }}
+                        {% if form.subject.errors %}<div class="field-error">{{ form.subject.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="ticket-name-input" class="form-label">Name (Optional)</label>
+                            {{ form.name }}
+                        </div>
+                        <div class="form-group">
+                            <label for="ticket-email-input" class="form-label">Email (Optional)</label>
+                            {{ form.email }}
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ticket-error-input" class="form-label">Related Error Code (Optional)</label>
+                        {{ form.related_error_code }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ticket-desc-input" class="form-label">Description <span class="required">*</span></label>
+                        {{ form.description }}
+                        {% if form.description.errors %}<div class="field-error">{{ form.description.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary btn-block" id="btn-submit-ticket">
+                            Submit Ticket
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <!-- Column 2: Ticket Status Lookup -->
+        <div class="support-col-lookup">
+            <section class="card lookup-card">
+                <div class="card-header-line">
+                    <div>
+                        <h2 class="card-section-title">Check Ticket Status</h2>
+                    </div>
+                </div>
+
+                <form method="GET" action="{% url 'support' %}" class="lookup-form">
+                    <div class="form-group">
+                        <input type="text" name="lookup_ref" value="{{ lookup_ref }}" class="form-control" placeholder="Reference code (e.g. TICK-123456)" required maxlength="50" id="lookup-ref-input">
+                    </div>
+                    <button type="submit" class="btn btn-secondary btn-block" id="btn-lookup-ticket">
+                        Check Status
+                    </button>
+                </form>
+
+                {% if lookup_searched %}
+                    <div class="lookup-result-box">
+                        {% if lookup_ticket %}
+                            <div class="lookup-result-success">
+                                <span class="badge badge-status-{{ lookup_ticket.status|lower }}">{{ lookup_ticket.get_status_display }}</span>
+                                <h3 class="lookup-ticket-title">{{ lookup_ticket.subject }}</h3>
+                                <div class="lookup-meta">
+                                    <span>Reference: <strong>{{ lookup_ticket.reference }}</strong></span>
+                                    <span>Created: {{ lookup_ticket.created_at|date:"M j, Y, g:i a" }}</span>
+                                    {% if lookup_ticket.related_error_code %}
+                                        <span>Error Code: <strong>{{ lookup_ticket.related_error_code }}</strong></span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="lookup-result-empty">
+                                <p>No ticket found with reference <strong>{{ lookup_ref }}</strong>.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </section>
+
+            <!-- Self-Service Links -->
+            <section class="card">
+                <h3 class="mini-section-label">Quick Links</h3>
+                <div class="quick-nav-cards">
+                    <a href="{% url 'faq_list' %}" class="quick-nav-card">
+                        <strong>FAQs &rarr;</strong>
+                        <span>Browse solutions for common development questions.</span>
+                    </a>
+                    <a href="{% url 'error_guide' %}" class="quick-nav-card">
+                        <strong>Error Code Guide &rarr;</strong>
+                        <span>Troubleshooting steps for HTTP status codes.</span>
+                    </a>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

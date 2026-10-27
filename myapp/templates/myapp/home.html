@@ -1,0 +1,148 @@
+{% extends 'myapp/base.html' %}
+{% load static %}
+
+{% block title %}DevHelp AI — Personal Developer Support & Knowledge Base{% endblock %}
+
+{% block content %}
+<div class="portal-container">
+    <!-- Hero Section -->
+    <section class="portal-hero">
+        <div class="hero-badge">Developer Support &bull; Knowledge Base</div>
+        <h1 class="portal-hero-title">Welcome to <span class="brand-highlight">DevHelp AI</span></h1>
+        <p class="portal-hero-subtitle">
+            A personal developer support portal engineered to explain common HTTP errors, troubleshoot Python and Django bugs, and provide instant guidance grounded in verified database documentation.
+        </p>
+
+        <!-- CTA Buttons -->
+        <div class="hero-cta-group">
+            <button type="button" class="btn btn-primary btn-lg" onclick="toggleChatWindow(true)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>Ask AI Assistant</span>
+            </button>
+            <a href="{% url 'error_guide' %}" class="btn btn-secondary btn-lg">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Error Code Guide</span>
+            </a>
+            <a href="{% url 'faq_list' %}" class="btn btn-secondary btn-lg">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                <span>Browse FAQs</span>
+            </a>
+        </div>
+
+        <!-- Metric Summary Bar -->
+        <div class="portal-stats-bar">
+            <div class="stat-item">
+                <span class="stat-number">{{ total_faqs }}</span>
+                <span class="stat-label">Verified FAQs</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">{{ total_error_codes }}</span>
+                <span class="stat-label">Error Codes Cataloged</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">24/7</span>
+                <span class="stat-label">Grounded AI Support</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-number">100%</span>
+                <span class="stat-label">Database Grounded</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Popular FAQs Section -->
+    <section class="portal-section">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Popular Developer FAQs</h2>
+                <p class="section-desc">Practical answers to fundamental Django, Python, and web architecture questions.</p>
+            </div>
+            <a href="{% url 'faq_list' %}" class="view-all-link">View all {{ total_faqs }} FAQs &rarr;</a>
+        </div>
+
+        <div class="faq-cards-grid">
+            {% for faq in featured_faqs %}
+                <article class="faq-card" id="faq-card-{{ faq.id }}">
+                    <div class="faq-card-header">
+                        <span class="badge badge-category">{{ faq.category }}</span>
+                    </div>
+                    <h3 class="faq-card-question">{{ faq.question }}</h3>
+                    <p class="faq-card-preview">{{ faq.answer|truncatewords:30 }}</p>
+                    <div class="faq-card-footer">
+                        <button type="button" class="btn-text" onclick="sendQuickPrompt('{{ faq.question|escapejs }}')">
+                            Ask Assistant About This &rarr;
+                        </button>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty-state">
+                    <p>No FAQs seeded yet. Run <code>python manage.py seed_devhelp</code>.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Common Error Codes Section -->
+    <section class="portal-section">
+        <div class="section-header">
+            <div>
+                <h2 class="section-title">Common Software Error Codes</h2>
+                <p class="section-desc">Quick diagnostics and root-cause explanations for frequent HTTP and server failures.</p>
+            </div>
+            <a href="{% url 'error_guide' %}" class="view-all-link">View all {{ total_error_codes }} Error Codes &rarr;</a>
+        </div>
+
+        <div class="error-cards-grid">
+            {% for ec in featured_codes %}
+                <article class="error-code-card code-card-{{ ec.code }}" id="error-card-{{ ec.code }}">
+                    <div class="code-card-top">
+                        <span class="error-pill error-pill-{{ ec.code }}">{{ ec.code }}</span>
+                        {% if ec.status_code %}
+                            <span class="status-code-meta">HTTP {{ ec.status_code }}</span>
+                        {% else %}
+                            <span class="status-code-meta">Custom Site Code</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="code-card-title">{{ ec.title }}</h3>
+                    <p class="code-card-desc">{{ ec.description|truncatewords:20 }}</p>
+                    <div class="code-card-actions">
+                        <a href="{% url 'error_detail' ec.code %}" class="btn btn-sm btn-secondary">Detailed Guide</a>
+                        <button type="button" class="btn btn-sm btn-text-accent" onclick="sendQuickPrompt('Explain Error Code {{ ec.code }} ({{ ec.title|escapejs }}) and troubleshooting steps')">
+                            Troubleshoot with AI
+                        </button>
+                    </div>
+                </article>
+            {% empty %}
+                <div class="empty-state">
+                    <p>No error codes seeded yet. Run <code>python manage.py seed_devhelp</code>.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Support Assistance Banner -->
+    <section class="support-cta-banner">
+        <div class="banner-icon-col">
+            <div class="large-icon">💡</div>
+        </div>
+        <div class="banner-content-col">
+            <h3>Need Personalized Help With Your Project?</h3>
+            <p>DevHelp AI combines automated AI diagnostics grounded in SQL documentation with human support ticketing. If the assistant cannot find an exact solution, it can generate an official support ticket for you on the spot.</p>
+            <div class="banner-buttons">
+                <button type="button" class="btn btn-primary" onclick="toggleChatWindow(true)">Open Assistant</button>
+                <a href="{% url 'about' %}" class="btn btn-secondary">Submit Support Ticket</a>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,235 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}AI Task Breakdown - TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="ai-feature-container">
+    <!-- Header -->
+    <div class="feature-hero">
+        <div class="hero-badge">AI Assistant</div>
+        <h2>Task Breakdown</h2>
+        <p class="subtitle">Enter any large goal, milestone, or project. Gemini AI will break it down into realistic, prioritized action items that you can review and save.</p>
+    </div>
+
+    <!-- API Key Notice if unconfigured -->
+    {% if not is_gemini_configured %}
+        <div class="card api-warning-card" role="region" aria-label="API Setup Info">
+            <div class="warning-icon">&#9888;</div>
+            <div class="warning-content">
+                <strong>Gemini API Key Required for AI Features</strong>
+                <p>TaskFlow AI uses Google Gemini to generate intelligent breakdowns. To activate this feature:</p>
+                <ol class="setup-steps">
+                    <li>Create or obtain your Gemini API key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a>.</li>
+                    <li>Open or create the <code>.env</code> file in your project root: <code>C:\Users\mithr\myproject\.env</code>.</li>
+                    <li>Add your key: <code>GEMINI_API_KEY=your_actual_key_here</code>.</li>
+                    <li>Restart the development server.</li>
+                </ol>
+                <p class="note-text"><em>Standard task creation, editing, and filtering remain fully functional without an API key.</em></p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Goal Input Form -->
+    <section class="card form-card-expanded">
+        <h3 class="card-section-title">Define Your Goal</h3>
+        <form method="POST" action="{% url 'task_breakdown' %}" class="breakdown-input-form" id="breakdown-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="generate">
+
+            <div class="form-group form-group-full">
+                <label for="goal-input" class="form-label">What is your main goal or project? <span class="required">*</span></label>
+                <input 
+                    type="text" 
+                    name="goal" 
+                    id="goal-input" 
+                    class="form-control" 
+                    placeholder="e.g., Prepare for my Django practical exam, launch personal portfolio site..." 
+                    value="{{ goal }}"
+                    required 
+                    maxlength="500"
+                >
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="deadline-input" class="form-label">Target Deadline (Optional)</label>
+                    <input 
+                        type="text" 
+                        name="deadline" 
+                        id="deadline-input" 
+                        class="form-control" 
+                        placeholder="e.g., This Friday, Nov 15, or in 2 weeks" 
+                        value="{{ deadline }}"
+                        maxlength="100"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="time-input" class="form-label">Available Time (Optional)</label>
+                    <input 
+                        type="text" 
+                        name="available_time" 
+                        id="time-input" 
+                        class="form-control" 
+                        placeholder="e.g., 2 hours per day, 10 hours total" 
+                        value="{{ available_time }}"
+                        maxlength="100"
+                    >
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="btn-generate-subtasks" {% if not is_gemini_configured %}disabled title="Add GEMINI_API_KEY to .env first"{% endif %}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                    <span>Generate Subtasks with AI</span>
+                </button>
+                <div class="loading-spinner" id="breakdown-loading" style="display: none;">
+                    <span class="spinner-circle"></span>
+                    <span>Gemini is generating structured subtasks...</span>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <!-- Suggestions Review & Selection Section -->
+    {% if suggestions %}
+        <section class="card suggestions-card" id="suggestions-section">
+            <div class="suggestions-header">
+                <div>
+                    <span class="ai-badge">AI Suggestions</span>
+                    <h3>Review &amp; Customize Subtasks</h3>
+                    <p class="subtitle">Select individual subtasks or select all. You can edit any title, description, priority, duration, or date before saving.</p>
+                </div>
+                <div class="selection-actions">
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-select-all" onclick="toggleSelectAll(true)">Select All</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-deselect-all" onclick="toggleSelectAll(false)">Deselect All</button>
+                </div>
+            </div>
+
+            <form method="POST" action="{% url 'task_breakdown' %}" id="save-selected-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="save_selected">
+                <input type="hidden" name="original_goal" value="{{ goal }}">
+
+                <div class="subtasks-list">
+                    {% for item in suggestions %}
+                        <div class="subtask-card" id="subtask-card-{{ forloop.counter0 }}">
+                            <div class="subtask-select-col">
+                                <label class="custom-checkbox-wrap" title="Select task">
+                                    <input 
+                                        type="checkbox" 
+                                        name="selected_tasks" 
+                                        value="{{ forloop.counter0 }}" 
+                                        class="subtask-checkbox" 
+                                        id="subtask-check-{{ forloop.counter0 }}"
+                                        checked
+                                    >
+                                    <span class="checkbox-visual"></span>
+                                </label>
+                            </div>
+
+                            <div class="subtask-fields-col">
+                                <div class="form-group">
+                                    <label class="field-label-sm">Subtask Title</label>
+                                    <input 
+                                        type="text" 
+                                        name="title_{{ forloop.counter0 }}" 
+                                        value="{{ item.title }}" 
+                                        class="form-control form-control-sm font-semibold" 
+                                        required 
+                                        maxlength="255"
+                                        id="subtask-title-{{ forloop.counter0 }}"
+                                    >
+                                </div>
+
+                                <div class="form-group">
+                                    <label class="field-label-sm">Description</label>
+                                    <textarea 
+                                        name="description_{{ forloop.counter0 }}" 
+                                        rows="2" 
+                                        class="form-control form-control-sm"
+                                        id="subtask-desc-{{ forloop.counter0 }}"
+                                    >{{ item.description }}</textarea>
+                                </div>
+
+                                <div class="subtask-meta-row">
+                                    <div class="form-group-compact">
+                                        <label class="field-label-sm">Priority</label>
+                                        <select name="priority_{{ forloop.counter0 }}" class="form-select form-select-sm" id="subtask-prio-{{ forloop.counter0 }}">
+                                            <option value="low" {% if item.priority == 'low' %}selected{% endif %}>Low</option>
+                                            <option value="medium" {% if item.priority == 'medium' %}selected{% endif %}>Medium</option>
+                                            <option value="high" {% if item.priority == 'high' %}selected{% endif %}>High</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="form-group-compact">
+                                        <label class="field-label-sm">Est. Duration (Mins)</label>
+                                        <input 
+                                            type="number" 
+                                            name="duration_{{ forloop.counter0 }}" 
+                                            value="{{ item.estimated_duration|default:30 }}" 
+                                            min="5" 
+                                            max="480" 
+                                            class="form-control form-control-sm"
+                                            id="subtask-dur-{{ forloop.counter0 }}"
+                                        >
+                                    </div>
+
+                                    <div class="form-group-compact">
+                                        <label class="field-label-sm">Suggested Due Date</label>
+                                        <input 
+                                            type="date" 
+                                            name="due_date_{{ forloop.counter0 }}" 
+                                            value="{{ item.suggested_due_date|default:'' }}" 
+                                            class="form-control form-control-sm"
+                                            id="subtask-date-{{ forloop.counter0 }}"
+                                        >
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="save-actions-bar">
+                    <button type="submit" class="btn btn-primary" id="btn-save-selected">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        <span>Add Selected Tasks to My To-Do List</span>
+                    </button>
+                    <a href="{% url 'task_list' %}" class="btn btn-secondary">Discard</a>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Loading state for AI generation
+    const breakdownForm = document.getElementById('breakdown-form');
+    if (breakdownForm) {
+        breakdownForm.addEventListener('submit', function() {
+            const btn = document.getElementById('btn-generate-subtasks');
+            const spinner = document.getElementById('breakdown-loading');
+            if (btn && spinner) {
+                btn.style.display = 'none';
+                spinner.style.display = 'flex';
+            }
+        });
+    }
+
+    // Toggle select all / deselect all
+    function toggleSelectAll(select) {
+        const checkboxes = document.querySelectorAll('.subtask-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = select;
+        });
+    }
+</script>
+{% endblock %}

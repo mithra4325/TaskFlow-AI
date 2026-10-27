@@ -1,0 +1,27 @@
+# ==============================================================================
+# TaskFlow AI - Project Dependencies
+# ==============================================================================
+
+# Core Web Framework
+Django>=6.0.0,<7.0.0
+
+# Official Google Gemini GenAI SDK
+google-genai>=2.33.0
+
+# MongoDB Driver (Atlas & Local)
+pymongo>=4.19.0
+dnspython>=2.9.0
+certifi>=2025.1.31
+
+# Environment Variables & HTTP
+python-dotenv>=1.2.4
+requests>=2.34.2
+
+# Production Static File Serving
+whitenoise>=6.12.0
+
+# Production WSGI HTTP Server (Linux deployment)
+gunicorn>=23.0.0; platform_system != "Windows"
+
+# PostgreSQL database driver for production deployment
+psycopg2-binary>=2.9.9; platform_system != "Windows"

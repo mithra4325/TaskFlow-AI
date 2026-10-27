@@ -1,0 +1,126 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}FAQs — TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="faq-page-container">
+    <!-- Page Header -->
+    <div class="page-hero">
+        <h1 class="page-title">FAQs</h1>
+        <p class="page-subtitle">Frequently asked questions about web development, Django, and deployments.</p>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <section class="toolbar-section">
+        <form method="GET" action="{% url 'faq_list' %}" class="filter-search-form" id="faq-search-form">
+            <!-- Search bar -->
+            <div class="search-input-group">
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input 
+                    type="search" 
+                    name="q" 
+                    value="{{ search_query }}" 
+                    placeholder="Search" 
+                    class="search-input"
+                    id="faq-search-input"
+                >
+                {% if search_query %}
+                    <a href="{% url 'faq_list' %}{% if selected_category %}?category={{ selected_category }}{% endif %}" class="search-clear-btn" title="Clear search">&times;</a>
+                {% endif %}
+            </div>
+
+            <!-- Category Filter Pills -->
+            <div class="filter-pills" role="tablist">
+                <a href="{% url 'faq_list' %}{% if search_query %}?q={{ search_query }}{% endif %}" 
+                   class="filter-pill {% if not selected_category %}active{% endif %}" id="cat-all">
+                   All Categories
+                </a>
+                {% for code, label in categories %}
+                    <a href="?category={{ code }}{% if search_query %}&q={{ search_query }}{% endif %}" 
+                       class="filter-pill {% if selected_category == code %}active{% endif %}" id="cat-{{ forloop.counter }}">
+                       {{ label }}
+                    </a>
+                {% endfor %}
+            </div>
+
+            {% if search_query or selected_category %}
+                <div class="toolbar-reset-wrap">
+                    <a href="{% url 'faq_list' %}" class="btn-reset-filters">Clear all filters</a>
+                </div>
+            {% endif %}
+        </form>
+    </section>
+
+    <!-- FAQ Accordion List -->
+    <section class="faq-list-section" aria-label="FAQ Accordion">
+        <div class="faq-list-count">
+            Showing <strong>{{ total_count }}</strong> verified FAQ{{ total_count|pluralize }}
+        </div>
+
+        {% if faqs %}
+            <div class="faq-accordion" id="faq-accordion">
+                {% for faq in faqs %}
+                    <div class="faq-item-card" id="faq-{{ faq.id }}">
+                        <button type="button" class="faq-question-btn" onclick="toggleFaqAccordion({{ faq.id }})" aria-expanded="true" aria-controls="faq-ans-{{ faq.id }}">
+                            <div class="faq-title-wrap">
+                                <span class="badge badge-category badge-cat-sm">{{ faq.category }}</span>
+                                <h3 class="faq-question-text">{{ faq.question }}</h3>
+                            </div>
+                            <span class="faq-arrow-icon" id="faq-arrow-{{ faq.id }}">&#9660;</span>
+                        </button>
+                        <div class="faq-answer-panel" id="faq-ans-{{ faq.id }}" style="display: block;">
+                            <div class="faq-answer-content">
+                                <p>{{ faq.answer|linebreaksbr }}</p>
+                            </div>
+                            <div class="faq-meta-footer">
+                                {% if faq.keywords %}
+                                    <span class="faq-keywords">Tags: <code>{{ faq.keywords }}</code></span>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-text-accent" onclick="sendQuickPrompt('Tell me more about: {{ faq.question|escapejs }}')">
+                                    Discuss with Assistant &rarr;
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <!-- Empty State -->
+            <div class="card empty-state" id="empty-state">
+                <div class="empty-icon-wrap" aria-hidden="true">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </div>
+                <h3>No FAQs matched your search</h3>
+                <p>We couldn't find any FAQs matching "{{ search_query }}". Try different keywords or ask our AI Support Assistant below.</p>
+                <div class="empty-actions" style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.5rem;">
+                    <a href="{% url 'faq_list' %}" class="btn btn-secondary">View All FAQs</a>
+                    <button type="button" class="btn btn-primary" onclick="sendQuickPrompt('{{ search_query|escapejs }}')">Ask Assistant</button>
+                </div>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function toggleFaqAccordion(id) {
+        const panel = document.getElementById('faq-ans-' + id);
+        const arrow = document.getElementById('faq-arrow-' + id);
+        if (!panel) return;
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            arrow.innerHTML = '&#9660;';
+        } else {
+            panel.style.display = 'none';
+            arrow.innerHTML = '&#9654;';
+        }
+    }
+</script>
+{% endblock %}

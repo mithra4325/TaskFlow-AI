@@ -1,0 +1,295 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Dashboard — TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="dashboard-wrapper">
+    <!-- Key Metrics Grid -->
+    <section class="metrics-grid" aria-label="Task Statistics">
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Total Tasks</span>
+            </div>
+            <div class="metric-value" id="stat-total-tasks">{{ total_tasks }}</div>
+            <div class="metric-footnote">All recorded tasks</div>
+        </div>
+
+        <div class="metric-card metric-card-success">
+            <div class="metric-header">
+                <span class="metric-label">Completed</span>
+            </div>
+            <div class="metric-value text-success" id="stat-completed-tasks">{{ completed_tasks }}</div>
+            <div class="metric-footnote">{{ progress_percentage }}% completion rate</div>
+        </div>
+
+        <div class="metric-card">
+            <div class="metric-header">
+                <span class="metric-label">Pending</span>
+            </div>
+            <div class="metric-value text-indigo" id="stat-pending-tasks">{{ pending_tasks }}</div>
+            <div class="metric-footnote">Tasks in progress</div>
+        </div>
+
+        <div class="metric-card {% if overdue_count > 0 %}metric-card-danger{% endif %}">
+            <div class="metric-header">
+                <span class="metric-label">Overdue</span>
+            </div>
+            <div class="metric-value {% if overdue_count > 0 %}text-danger{% else %}text-muted{% endif %}" id="stat-overdue-tasks">
+                {{ overdue_count }}
+            </div>
+            <div class="metric-footnote">
+                {% if overdue_count > 0 %}Requires attention{% else %}No overdue deadlines{% endif %}
+            </div>
+        </div>
+    </section>
+
+    <!-- Overall Completion Progress Bar -->
+    <section class="card progress-overview-card">
+        <div class="progress-header">
+            <div>
+                <h2 class="card-section-title">Task Completion Progress</h2>
+                <p class="section-subtitle">{{ completed_tasks }} of {{ total_tasks }} tasks finished</p>
+            </div>
+            <span class="progress-percent-label">{{ progress_percentage }}%</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-valuenow="{{ progress_percentage }}" aria-valuemin="0" aria-valuemax="100">
+            <div class="progress-bar-fill" style="width: {{ progress_percentage }}%;"></div>
+        </div>
+        <div class="progress-pills-row">
+            <span class="progress-pill pill-high">High: {{ high_priority_count }} pending</span>
+            <span class="progress-pill pill-medium">Medium: {{ medium_priority_count }} pending</span>
+            <span class="progress-pill pill-low">Low: {{ low_priority_count }} pending</span>
+        </div>
+    </section>
+
+    <!-- Two-Column Operational Dashboard Layout -->
+    <div class="dashboard-cols">
+        <!-- Left Column: Upcoming Deadlines & Quick Add -->
+        <div class="dashboard-col-main">
+            <!-- Focus Task / Daily Summary -->
+            {% if focus_task %}
+            <section class="card focus-task-card">
+                <div class="focus-badge">Daily Focus</div>
+                <div class="focus-task-body">
+                    <div>
+                        <h3 class="focus-task-title">{{ focus_task.title }}</h3>
+                        {% if focus_task.description %}
+                            <p class="focus-task-desc">{{ focus_task.description|truncatewords:20 }}</p>
+                        {% endif %}
+                        <div class="task-meta-row">
+                            <span class="badge badge-priority-{{ focus_task.priority }}">{{ focus_task.get_priority_display }}</span>
+                            <span class="badge badge-category">{{ focus_task.get_category_display }}</span>
+                            {% if focus_task.due_date %}
+                                <span class="task-due {% if focus_task.is_overdue %}task-due-overdue{% endif %}">
+                                    Due: {{ focus_task.due_date|date:"M j, Y" }}
+                                    {% if focus_task.is_overdue %}(Overdue){% endif %}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <form method="POST" action="{% url 'toggle_task' focus_task.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success">Mark Done</button>
+                    </form>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Upcoming Deadlines (Next 7 Days) -->
+            <section class="card">
+                <div class="card-header-line">
+                    <div>
+                        <h2 class="card-section-title">Upcoming Deadlines (Next 7 Days)</h2>
+                    </div>
+                    <a href="{% url 'task_list' %}" class="btn btn-sm btn-secondary">All Tasks</a>
+                </div>
+
+                {% if upcoming_tasks %}
+                    <div class="task-items-list">
+                        {% for task in upcoming_tasks %}
+                        <div class="task-item-row" id="dash-task-{{ task.id }}">
+                            <form method="POST" action="{% url 'toggle_task' task.id %}" class="task-checkbox-form">
+                                {% csrf_token %}
+                                <button type="submit" class="checkbox-btn" aria-label="Toggle task status" title="{% if task.completed %}Mark as incomplete{% else %}Mark as complete{% endif %}">
+                                    {% if task.completed %}
+                                    <svg class="check-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                        <polyline points="20 6 9 17 4 12"></polyline>
+                                    </svg>
+                                    {% endif %}
+                                </button>
+                            </form>
+                            <div class="task-item-info">
+                                <span class="task-item-title">{{ task.title }}</span>
+                                <div class="task-meta-pills">
+                                    <span class="badge badge-priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
+                                    <span class="badge badge-category">{{ task.get_category_display }}</span>
+                                    <span class="task-due-text">Due: {{ task.due_date|date:"M j" }}</span>
+                                </div>
+                            </div>
+                            <div class="task-item-actions">
+                                <a href="{% url 'edit_task' task.id %}" class="btn btn-xs btn-secondary" title="Edit task">Edit</a>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state-compact">
+                        <p>No deadlines scheduled for the next 7 days.</p>
+                        <a href="{% url 'task_list' %}" class="btn btn-sm btn-secondary">View Tasks</a>
+                    </div>
+                {% endif %}
+            </section>
+
+            <!-- Quick Add Task Card -->
+            <section class="card">
+                <div class="card-header-line">
+                    <div>
+                        <h2 class="card-section-title">Quick Add Task</h2>
+                    </div>
+                </div>
+
+                <form method="POST" action="{% url 'add_task' %}" class="quick-add-form" id="quick-add-task-form">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label class="form-label-sm" for="input-quick-title">Task Title</label>
+                        <input type="text" name="title" class="form-control" placeholder="Enter task title..." required maxlength="255" id="input-quick-title">
+                    </div>
+                    <div class="form-row-three">
+                        <div class="form-group">
+                            <label class="form-label-sm" for="quick-priority">Priority</label>
+                            <select name="priority" id="quick-priority" class="form-select">
+                                <option value="high">High</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-sm" for="quick-category">Category</label>
+                            <select name="category" id="quick-category" class="form-select">
+                                <option value="work" selected>Work</option>
+                                <option value="study">Study</option>
+                                <option value="personal">Personal</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label-sm" for="quick-due-date">Due Date</label>
+                            <input type="date" name="due_date" id="quick-due-date" class="form-control" value="{{ today|date:'Y-m-d' }}">
+                        </div>
+                    </div>
+                    <div class="form-actions-inline">
+                        <button type="submit" class="btn btn-primary" id="btn-submit-quick-task">Add Task</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <!-- Right Column: Overdue alerts, Knowledge Highlights & Support -->
+        <div class="dashboard-col-side">
+            <!-- Overdue Warning (if any) -->
+            {% if overdue_count > 0 %}
+            <section class="card card-warning-alert">
+                <div class="warning-alert-header">
+                    <div>
+                        <h3 class="warning-title">{{ overdue_count }} Overdue Task{% if overdue_count > 1 %}s{% endif %}</h3>
+                    </div>
+                </div>
+                <div class="overdue-items-mini">
+                    {% for task in overdue_tasks %}
+                    <div class="overdue-item-mini">
+                        <div>
+                            <span class="overdue-item-title">{{ task.title }}</span>
+                            <span class="overdue-item-date">Due: {{ task.due_date|date:"M j" }}</span>
+                        </div>
+                        <form method="POST" action="{% url 'toggle_task' task.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-xs btn-success" title="Mark Done">Done</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                <a href="{% url 'task_list' %}?filter=overdue" class="btn btn-sm btn-block btn-secondary" style="margin-top:0.75rem;">
+                    View Overdue Tasks
+                </a>
+            </section>
+            {% endif %}
+
+            <!-- Developer Knowledge Base & Error Guides -->
+            <section class="card">
+                <div class="card-header-line">
+                    <div>
+                        <h2 class="card-section-title">Knowledge Base</h2>
+                    </div>
+                    <a href="{% url 'faq_list' %}" class="btn btn-xs btn-secondary">All FAQs</a>
+                </div>
+
+                <div class="knowledge-mini-stats">
+                    <div class="k-stat">
+                        <span class="k-num">{{ total_faqs }}</span>
+                        <span class="k-lbl">FAQs</span>
+                    </div>
+                    <div class="k-stat">
+                        <span class="k-num">{{ total_error_codes }}</span>
+                        <span class="k-lbl">Error Guides</span>
+                    </div>
+                    <div class="k-stat">
+                        <span class="k-num">{{ total_tickets }}</span>
+                        <span class="k-lbl">Support Tickets</span>
+                    </div>
+                </div>
+
+                <h3 class="mini-section-label">Common Error Codes</h3>
+                <div class="error-codes-quick-pills">
+                    <a href="{% url 'error_detail' '400' %}" class="error-quick-pill">400</a>
+                    <a href="{% url 'error_detail' '404' %}" class="error-quick-pill">404</a>
+                    <a href="{% url 'error_detail' '500' %}" class="error-quick-pill error-quick-danger">500</a>
+                    <a href="{% url 'error_detail' 'DEV001' %}" class="error-quick-pill">DEV001</a>
+                </div>
+
+                <h3 class="mini-section-label" style="margin-top: 1rem;">Frequent Questions</h3>
+                <ul class="mini-faq-list">
+                    {% for faq in featured_faqs %}
+                    <li>
+                        <a href="{% url 'faq_list' %}?q={{ faq.question|urlencode }}" class="mini-faq-link">
+                            {{ faq.question }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+
+                <div class="knowledge-cta-box">
+                    <button type="button" class="btn btn-sm btn-block btn-secondary" onclick="toggleChatWindow(true)">
+                        Open AI Assistant
+                    </button>
+                </div>
+            </section>
+
+            <!-- System Health Snapshot -->
+            <section class="card system-health-card">
+                <div class="health-header">
+                    <span class="health-dot health-dot-online"></span>
+                    <span class="health-title">System Status</span>
+                </div>
+                <div class="health-details">
+                    <div class="health-row">
+                        <span>Database:</span>
+                        <strong class="text-success">SQLite (Connected)</strong>
+                    </div>
+                    <div class="health-row">
+                        <span>Gemini AI:</span>
+                        {% if is_gemini_configured %}
+                            <strong class="text-success">Configured</strong>
+                        {% else %}
+                            <strong class="text-muted">Unconfigured</strong>
+                        {% endif %}
+                    </div>
+                    <div class="health-row">
+                        <span>Health Endpoint:</span>
+                        <a href="{% url 'health_check' %}" target="_blank" class="health-link">/health/</a>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

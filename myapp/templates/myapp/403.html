@@ -1,0 +1,28 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}403 — Forbidden | DevHelp AI{% endblock %}
+
+{% block content %}
+<div class="error-page-wrapper">
+    <div class="card error-page-card">
+        <div class="error-badge-pill error-badge-danger">HTTP 403</div>
+        <h1 class="error-page-title">Access Forbidden</h1>
+        <p class="error-page-desc">You do not have sufficient permissions to access this resource or a CSRF verification check failed.</p>
+        
+        <div class="error-solutions-box">
+            <h3>Quick Diagnostics</h3>
+            <ul>
+                <li>If submitting a form, verify that cookies and CSRF tokens are enabled in your browser.</li>
+                <li>Administrative views (/admin/) require staff or superuser account credentials.</li>
+                <li>Ensure you are logged in with the appropriate permission tier.</li>
+            </ul>
+        </div>
+
+        <div class="error-actions-row">
+            <a href="{% url 'home' %}" class="btn btn-primary">Return to Homepage</a>
+            <button type="button" class="btn btn-secondary" onclick="toggleChatWindow(true)">Ask DevHelp AI</button>
+            <a href="{% url 'error_detail' '403' %}" class="btn btn-text">View 403 Troubleshooting Guide &rarr;</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

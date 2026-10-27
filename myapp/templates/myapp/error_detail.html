@@ -1,0 +1,110 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Error {{ error_obj.code }}: {{ error_obj.title }} — DevHelp AI Guide{% endblock %}
+
+{% block content %}
+<div class="error-detail-page">
+    <div class="page-nav-back">
+        <a href="{% url 'error_guide' %}" class="back-link">&larr; Back to Error Code Guide</a>
+    </div>
+
+    <!-- Error Banner Header -->
+    <header class="error-detail-hero">
+        <div class="hero-code-badge error-pill-{{ error_obj.code }}">
+            {{ error_obj.code }}
+        </div>
+        <div class="hero-code-info">
+            <div class="meta-row">
+                {% if error_obj.status_code %}
+                    <span class="badge badge-accent">HTTP {{ error_obj.status_code }} Status Code</span>
+                {% else %}
+                    <span class="badge badge-accent">DevHelp AI Internal Code</span>
+                {% endif %}
+                <span class="meta-date">Updated {{ error_obj.updated_at|date:"M d, Y" }}</span>
+            </div>
+            <h1 class="error-hero-title">{{ error_obj.title }}</h1>
+            <p class="error-hero-desc">{{ error_obj.description }}</p>
+        </div>
+    </header>
+
+    <!-- Content Sections -->
+    <div class="error-sections-grid">
+        <!-- Main Troubleshooting Column -->
+        <div class="main-column">
+            <!-- Common Causes -->
+            <section class="card detail-section-card">
+                <h2 class="section-heading">Common Root Causes</h2>
+                <div class="section-body">
+                    {{ error_obj.common_causes|linebreaksbr }}
+                </div>
+            </section>
+
+            <!-- Diagnostic Steps -->
+            <section class="card detail-section-card">
+                <h2 class="section-heading">Diagnostic &amp; Troubleshooting Steps</h2>
+                <div class="section-body">
+                    {{ error_obj.troubleshooting_steps|linebreaksbr }}
+                </div>
+            </section>
+
+            <!-- Suggested Fixes -->
+            <section class="card detail-section-card">
+                <h2 class="section-heading">Suggested Fixes &amp; Code Remediation</h2>
+                <div class="section-body fixes-code-block">
+                    {{ error_obj.suggested_fixes|linebreaksbr }}
+                </div>
+            </section>
+
+            <!-- AI Interactive Prompt Box -->
+            <section class="card ai-prompt-cta-box">
+                <div class="prompt-cta-content">
+                    <h3>Still encountering Error {{ error_obj.code }}?</h3>
+                    <p>Ask DevHelp AI to diagnose your specific traceback or stack trace in real time.</p>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="sendQuickPrompt('I have an Error {{ error_obj.code }} ({{ error_obj.title|escapejs }}). Can you help me troubleshoot?')">
+                    Diagnose with AI Assistant
+                </button>
+            </section>
+        </div>
+
+        <!-- Sidebar Column -->
+        <aside class="sidebar-column">
+            <!-- Related Docs -->
+            {% if package_docs and package_docs.available %}
+                <div class="card sidebar-card">
+                    <h3 class="sidebar-card-title">Official Documentation</h3>
+                    <p class="sidebar-card-desc">Verified documentation for relevant library (<strong>{{ package_docs.name }}</strong>):</p>
+                    <a href="{{ package_docs.docs_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-secondary btn-block">
+                        Open {{ package_docs.name }} Docs &rarr;
+                    </a>
+                </div>
+            {% endif %}
+
+            <!-- Related FAQs -->
+            {% if related_faqs %}
+                <div class="card sidebar-card">
+                    <h3 class="sidebar-card-title">Related FAQs</h3>
+                    <ul class="sidebar-faq-list">
+                        {% for f in related_faqs %}
+                            <li>
+                                <a href="{% url 'faq_list' %}?q={{ f.question|urlencode }}" class="sidebar-faq-link">
+                                    {{ f.question }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+            <!-- Support Escalation -->
+            <div class="card sidebar-card support-escalation-card">
+                <h3 class="sidebar-card-title">Need Team Support?</h3>
+                <p>If automated diagnostics cannot resolve this error, create an official support ticket.</p>
+                <a href="{% url 'about' %}" class="btn btn-sm btn-primary btn-block">
+                    Open Support Ticket
+                </a>
+            </div>
+        </aside>
+    </div>
+</div>
+{% endblock %}

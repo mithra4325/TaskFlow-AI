@@ -1,0 +1,287 @@
+<!-- TaskFlow AI Support Assistant Chat Widget -->
+<div class="chat-widget-wrapper" id="devhelp-chat-widget">
+    <!-- Floating Trigger Button -->
+    <button type="button" class="chat-launcher-btn" id="chat-launcher-btn" aria-label="Open Assistant" onclick="toggleChatWindow()">
+        <span class="chat-launcher-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </span>
+        <span class="chat-launcher-text">Assistant</span>
+    </button>
+
+    <!-- Chat Modal Window -->
+    <div class="chat-window" id="chat-window" style="display: none;" role="dialog" aria-labelledby="chat-heading">
+        <!-- Header -->
+        <div class="chat-header">
+            <div class="chat-header-info">
+                <div class="chat-avatar" aria-hidden="true">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 16v-4"></path>
+                        <path d="M12 8h.01"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h3 id="chat-heading" class="chat-title">TaskFlow Assistant</h3>
+                    <div class="chat-status-line">
+                        <span class="chat-status-dot"></span>
+                        <span class="chat-status-text">Knowledge-Grounded Support</span>
+                    </div>
+                </div>
+            </div>
+            <div class="chat-header-actions">
+                <button type="button" class="chat-tool-btn" onclick="clearChatHistory()" title="Reset conversation" aria-label="Reset conversation">&#8635;</button>
+                <button type="button" class="chat-tool-btn" onclick="toggleChatWindow()" title="Close chat" aria-label="Close chat">&times;</button>
+            </div>
+        </div>
+
+        <!-- Messages Area -->
+        <div class="chat-messages" id="chat-messages" role="log" aria-live="polite">
+            <!-- Initial Greeting -->
+            <div class="chat-message message-assistant" id="msg-initial">
+                <div class="message-bubble">
+                    <p>Hello. I can answer developer questions grounded in our verified knowledge base, explain error codes (e.g. 400, 404, 500, DEV001), or assist with task management.</p>
+                </div>
+                <!-- Suggested Quick Prompts -->
+                <div class="quick-prompts-row" id="quick-prompts">
+                    <button type="button" class="quick-prompt-btn" onclick="sendQuickPrompt('What causes an HTTP 404 error?')">What causes a 404?</button>
+                    <button type="button" class="quick-prompt-btn" onclick="sendQuickPrompt('Explain Error 500 and how to fix it')">Explain 500 error</button>
+                    <button type="button" class="quick-prompt-btn" onclick="sendQuickPrompt('What does an environment variable do?')">Environment variables</button>
+                    <button type="button" class="quick-prompt-btn" onclick="sendQuickPrompt('How do I prioritize tasks using Eisenhower Matrix?')">Task prioritization</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <form class="chat-input-form" id="chat-input-form" onsubmit="handleChatSubmit(event)">
+            <input 
+                type="text" 
+                id="chat-user-input" 
+                class="chat-input" 
+                placeholder="Ask a question or enter an error code..." 
+                autocomplete="off"
+                maxlength="500"
+                required
+            >
+            <button type="submit" class="chat-send-btn" id="chat-send-btn" aria-label="Send message">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    const CHAT_SESSION_KEY = 'taskflow_chat_session_id';
+
+    function getConversationId() {
+        let cid = sessionStorage.getItem(CHAT_SESSION_KEY);
+        if (!cid) {
+            cid = 'sess_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
+            sessionStorage.setItem(CHAT_SESSION_KEY, cid);
+        }
+        return cid;
+    }
+
+    function toggleChatWindow(forceOpen = false) {
+        const win = document.getElementById('chat-window');
+        const launcher = document.getElementById('chat-launcher-btn');
+        if (!win) return;
+        if (forceOpen || win.style.display === 'none' || win.style.display === '') {
+            win.style.display = 'flex';
+            if (launcher) launcher.style.display = 'none';
+            setTimeout(() => {
+                const inp = document.getElementById('chat-user-input');
+                if (inp) inp.focus();
+            }, 100);
+        } else {
+            win.style.display = 'none';
+            if (launcher) launcher.style.display = 'inline-flex';
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const win = document.getElementById('chat-window');
+            if (win && win.style.display === 'flex') {
+                toggleChatWindow();
+            }
+        }
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function formatMarkdown(text) {
+        if (!text) return '';
+        const escapeHtml = (str) => {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        let formatted = escapeHtml(text)
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            .replace(/^### (.*$)/gim, '<h4 style="margin: 0.4rem 0 0.2rem 0; font-size: 0.95rem;">$1</h4>')
+            .replace(/^## (.*$)/gim, '<h3 style="margin: 0.5rem 0 0.25rem 0; font-size: 1rem;">$1</h3>')
+            .replace(/^\- (.*$)/gim, '<li style="margin-left: 1rem;">$1</li>')
+            .replace(/\n\n/g, '<p style="margin-top: 0.35rem;"></p>')
+            .replace(/\n/g, '<br>');
+        return formatted;
+    }
+
+    function appendMessage(role, text, sources = [], suggestTicket = false, logId = null) {
+        const container = document.getElementById('chat-messages');
+        const msgDiv = document.createElement('div');
+        msgDiv.className = `chat-message message-${role}`;
+
+        let bubbleHtml = `<div class="message-bubble">${formatMarkdown(text)}</div>`;
+
+        // Verified Sources pill if present
+        if (sources && sources.length > 0) {
+            bubbleHtml += `<div class="message-sources"><span class="source-tag">Source: ${sources.slice(0, 2).join(', ')}</span></div>`;
+        }
+
+        // Action button to escalate to support ticket if needed
+        if (suggestTicket) {
+            bubbleHtml += `
+                <div class="ticket-action-box">
+                    <button type="button" class="btn btn-sm btn-ticket-escalate" onclick="triggerTicketEscalation('${encodeURIComponent(text)}')">
+                        Open Support Ticket
+                    </button>
+                </div>
+            `;
+        }
+
+        // Feedback controls for assistant responses
+        if (role === 'assistant') {
+            bubbleHtml += `
+                <div class="feedback-row" id="fb-${Date.now()}">
+                    <span class="fb-label">Helpful?</span>
+                    <button type="button" class="fb-btn" onclick="sendFeedback(this, 'thumbs_up', '${logId}')">Yes</button>
+                    <button type="button" class="fb-btn" onclick="sendFeedback(this, 'thumbs_down', '${logId}')">No</button>
+                </div>
+            `;
+        }
+
+        msgDiv.innerHTML = bubbleHtml;
+        container.appendChild(msgDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function handleChatSubmit(event) {
+        if (event) event.preventDefault();
+        const input = document.getElementById('chat-user-input');
+        const message = input.value.trim();
+        if (!message) return;
+
+        input.value = '';
+        appendMessage('user', message);
+
+        // Hide quick prompts once conversation starts
+        const qp = document.getElementById('quick-prompts');
+        if (qp) qp.style.display = 'none';
+
+        // Add loading indicator
+        const container = document.getElementById('chat-messages');
+        const loadingDiv = document.createElement('div');
+        loadingDiv.className = 'chat-message message-assistant chat-loading';
+        loadingDiv.id = 'chat-loading-indicator';
+        loadingDiv.innerHTML = `<div class="message-bubble"><span class="typing-dots"><span>.</span><span>.</span><span>.</span></span> Searching knowledge base...</div>`;
+        container.appendChild(loadingDiv);
+        container.scrollTop = container.scrollHeight;
+
+        try {
+            const csrfToken = getCookie('csrftoken') || '';
+            const resp = await fetch('/api/chat/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({
+                    message: message,
+                    conversation_id: getConversationId(),
+                })
+            });
+
+            const data = await resp.json();
+            const loader = document.getElementById('chat-loading-indicator');
+            if (loader) loader.remove();
+
+            if (resp.ok) {
+                appendMessage('assistant', data.reply, data.sources, data.suggest_ticket, data.log_id);
+            } else {
+                appendMessage('assistant', data.reply || data.error || "Sorry, I encountered an issue. Please try again or open a support ticket.", [], true);
+            }
+        } catch (err) {
+            const loader = document.getElementById('chat-loading-indicator');
+            if (loader) loader.remove();
+            appendMessage('assistant', "Could not connect to support service. Please check your connection or try again.", [], true);
+        }
+    }
+
+    function sendQuickPrompt(promptText) {
+        const input = document.getElementById('chat-user-input');
+        input.value = promptText;
+        handleChatSubmit(null);
+    }
+
+    async function triggerTicketEscalation(contextText) {
+        const input = document.getElementById('chat-user-input');
+        input.value = "Yes, please open a support ticket for my inquiry.";
+        handleChatSubmit(null);
+    }
+
+    async function sendFeedback(btn, feedbackType, logId) {
+        const row = btn.parentElement;
+        row.innerHTML = `<span class="fb-thanks">Thanks for your feedback.</span>`;
+        try {
+            const csrfToken = getCookie('csrftoken') || '';
+            await fetch('/api/chat/feedback/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({
+                    conversation_id: getConversationId(),
+                    log_id: logId,
+                    feedback_type: feedbackType,
+                })
+            });
+        } catch (e) {}
+    }
+
+    function clearChatHistory() {
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = `
+            <div class="chat-message message-assistant">
+                <div class="message-bubble">
+                    <p>Conversation reset. How can I assist you with FAQs or Error Codes today?</p>
+                </div>
+            </div>
+        `;
+        sessionStorage.removeItem(CHAT_SESSION_KEY);
+    }
+</script>

@@ -1,0 +1,112 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Edit Task: {{ task.title }} - TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="edit-page-container">
+    <div class="page-header">
+        <a href="{% url 'task_list' %}" class="back-link">&larr; Back to Tasks</a>
+        <h2>Edit Task</h2>
+        <p class="subtitle">Modify task details, deadlines, and prioritization.</p>
+    </div>
+
+    <section class="card form-card-expanded">
+        <form method="POST" action="{% url 'edit_task' task.id %}" class="edit-task-form">
+            {% csrf_token %}
+
+            <div class="form-group form-group-full">
+                <label for="task-title-input" class="form-label">Task Title <span class="required">*</span></label>
+                <input 
+                    type="text" 
+                    name="title" 
+                    id="task-title-input" 
+                    class="form-control" 
+                    value="{{ form.title.value|default:task.title }}" 
+                    required 
+                    maxlength="255"
+                >
+                {% if form.title.errors %}
+                    <div class="field-error">{{ form.title.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-group form-group-full">
+                <label for="task-description-input" class="form-label">Description / Notes</label>
+                <textarea 
+                    name="description" 
+                    id="task-description-input" 
+                    rows="3" 
+                    class="form-control" 
+                    placeholder="Add extra context or steps..."
+                >{{ form.description.value|default:task.description }}</textarea>
+                {% if form.description.errors %}
+                    <div class="field-error">{{ form.description.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="task-priority-input" class="form-label">Priority</label>
+                    <select name="priority" id="task-priority-input" class="form-select">
+                        {% for val, label in task.Priority.choices %}
+                            <option value="{{ val }}" {% if form.priority.value == val or task.priority == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="task-category-input" class="form-label">Category</label>
+                    <select name="category" id="task-category-input" class="form-select">
+                        {% for val, label in task.Category.choices %}
+                            <option value="{{ val }}" {% if form.category.value == val or task.category == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="task-duedate-input" class="form-label">Due Date</label>
+                    <input 
+                        type="date" 
+                        name="due_date" 
+                        id="task-duedate-input" 
+                        class="form-control"
+                        value="{{ task.due_date|date:'Y-m-d' }}"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="task-duration-input" class="form-label">Estimated Duration (Mins)</label>
+                    <input 
+                        type="number" 
+                        name="estimated_duration" 
+                        id="task-duration-input" 
+                        class="form-control"
+                        value="{{ form.estimated_duration.value|default:task.estimated_duration|default:30 }}" 
+                        min="5" 
+                        max="480"
+                    >
+                </div>
+            </div>
+
+            <div class="form-group form-check-group">
+                <label class="checkbox-label" for="task-completed-input">
+                    <input 
+                        type="checkbox" 
+                        name="completed" 
+                        id="task-completed-input" 
+                        {% if task.completed %}checked{% endif %}
+                    >
+                    <span>Mark as Completed</span>
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary" id="save-task-btn">Save Changes</button>
+                <a href="{% url 'task_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </section>
+</div>
+{% endblock %}

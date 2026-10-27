@@ -1,0 +1,102 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Categories — TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="categories-page-wrapper">
+    <!-- Header -->
+    <section class="card categories-header-card">
+        <div class="header-line-flex">
+            <div>
+                <h1 class="page-title">Categories</h1>
+                <p class="page-subtitle">Organize and track tasks across workstreams.</p>
+            </div>
+            <div class="header-action-pills">
+                <span class="action-pill-stat"><strong>{{ total_categories }}</strong> Categories</span>
+                <span class="action-pill-stat"><strong>{{ total_tasks }}</strong> Tasks</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Categories Grid -->
+    <div class="categories-grid" id="categories-container">
+        {% for cat in category_data %}
+        <div class="card category-project-card" id="cat-card-{{ cat.key }}">
+            <!-- Card Header -->
+            <div class="cat-card-header">
+                <div>
+                    <h2 class="cat-title">{{ cat.label }}</h2>
+                    <span class="cat-count-sub">{{ cat.completed }} of {{ cat.total }} completed</span>
+                </div>
+                <span class="badge {% if cat.high_priority > 0 %}badge-danger{% else %}badge-neutral{% endif %}">
+                    {% if cat.high_priority > 0 %}
+                        {{ cat.high_priority }} High Priority
+                    {% else %}
+                        Normal
+                    {% endif %}
+                </span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="cat-progress-section">
+                <div class="progress-info-compact">
+                    <span>Progress</span>
+                    <strong>{{ cat.progress_percentage }}%</strong>
+                </div>
+                <div class="progress-track" role="progressbar" aria-valuenow="{{ cat.progress_percentage }}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress-bar-fill" style="width: {{ cat.progress_percentage }}%;"></div>
+                </div>
+            </div>
+
+            <!-- Tasks in this category -->
+            <div class="cat-tasks-list">
+                <h3 class="mini-section-label">Tasks ({{ cat.total }})</h3>
+                {% if cat.tasks %}
+                    {% for task in cat.tasks %}
+                    <div class="cat-task-row {% if task.completed %}is-completed{% endif %}">
+                        <form method="POST" action="{% url 'toggle_task' task.id %}" class="task-checkbox-form">
+                            {% csrf_token %}
+                            <input type="checkbox" onchange="this.form.submit()" class="task-checkbox" {% if task.completed %}checked{% endif %} aria-label="Toggle completion">
+                        </form>
+                        <div class="cat-task-body">
+                            <span class="cat-task-title">{{ task.title }}</span>
+                            <div class="cat-task-meta">
+                                <span class="badge badge-priority-{{ task.priority }}">{{ task.get_priority_display }}</span>
+                                {% if task.due_date %}
+                                    <span class="task-due-text {% if task.is_overdue %}text-danger font-bold{% endif %}">
+                                        Due: {{ task.due_date|date:"M j" }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <a href="{% url 'edit_task' task.id %}" class="btn-icon" title="Edit task">Edit</a>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state-micro">
+                        <span>No tasks in this category.</span>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Quick Add to this Category -->
+            <div class="cat-add-box">
+                <form method="POST" action="{% url 'add_task' %}" class="cat-quick-add-form">
+                    {% csrf_token %}
+                    <input type="hidden" name="category" value="{{ cat.key }}">
+                    <div class="cat-add-input-group">
+                        <input type="text" name="title" class="form-control form-control-sm" placeholder="Add task to {{ cat.label }}..." required maxlength="255">
+                        <button type="submit" class="btn btn-sm btn-primary">Add</button>
+                    </div>
+                </form>
+                <div class="cat-footer-actions">
+                    <a href="{% url 'task_list' %}?category={{ cat.key }}" class="cat-filter-link">
+                        Filter by {{ cat.label }} &rarr;
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

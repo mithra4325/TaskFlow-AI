@@ -1,0 +1,219 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}Plan My Day - TaskFlow AI Daily Planner{% endblock %}
+
+{% block content %}
+<div class="ai-feature-container">
+    <!-- Header Hero -->
+    <div class="feature-hero">
+        <div class="hero-badge">AI Assistant</div>
+        <h2>Plan My Day</h2>
+        <p class="subtitle">Turn your pending tasks into an achievable, time-blocked daily schedule based on priority, upcoming deadlines, and your available time today.</p>
+    </div>
+
+    <!-- API Key Notice if unconfigured -->
+    {% if not is_gemini_configured %}
+        <div class="card api-warning-card" role="region" aria-label="API Setup Info">
+            <div class="warning-icon">&#9888;</div>
+            <div class="warning-content">
+                <strong>Gemini API Key Required for AI Features</strong>
+                <p>TaskFlow AI uses Google Gemini to generate your daily plan. To activate this feature:</p>
+                <ol class="setup-steps">
+                    <li>Create or obtain your Gemini API key from <a href="https://aistudio.google.com/" target="_blank" rel="noopener">Google AI Studio</a>.</li>
+                    <li>Add it to your <code>.env</code> file: <code>GEMINI_API_KEY=your_actual_key_here</code>.</li>
+                    <li>Restart the development server.</li>
+                </ol>
+                <p class="note-text"><em>Your existing tasks, editing, and to-do list features remain fully functional without an API key.</em></p>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- Pending Tasks Check -->
+    {% if not pending_tasks %}
+        <div class="card empty-state-card">
+            <div class="empty-icon-wrap">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 14 14"></polyline>
+                </svg>
+            </div>
+            <h3>No Pending Tasks Found</h3>
+            <p>You're completely caught up! Add new tasks first to let Gemini organize your schedule.</p>
+            <a href="{% url 'task_list' %}" class="btn btn-primary">Go to Tasks</a>
+        </div>
+    {% else %}
+        <!-- Planner Parameters Form -->
+        <section class="card form-card-expanded">
+            <div class="form-header-inline">
+                <div>
+                    <h3 class="card-section-title">Schedule Parameters</h3>
+                    <p class="section-subtitle">Found <strong>{{ pending_tasks.count }} pending tasks</strong> ready for planning.</p>
+                </div>
+            </div>
+
+            <form method="POST" action="{% url 'daily_planner' %}" id="planner-form" class="planner-form">
+                {% csrf_token %}
+
+                <div class="form-row">
+                    <div class="form-group form-group-full">
+                        <label for="ai-planner-time-input" class="form-label">Available Time Today (Optional)</label>
+                        <input 
+                            type="text" 
+                            name="available_time_input" 
+                            id="ai-planner-time-input" 
+                            class="form-control" 
+                            placeholder="e.g., 4 hours or 180 minutes (Leave blank for full workday)"
+                            value="{{ available_time_input }}"
+                        >
+                        <span class="field-hint">Specify your working bandwidth (e.g. "3.5 hours" or "200 mins"). Overdue and high-priority tasks will be scheduled first.</span>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="btn-generate-plan" {% if not is_gemini_configured %}disabled title="Add GEMINI_API_KEY to .env first"{% endif %}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                        </svg>
+                        <span>{% if plan_result %}Regenerate Daily Plan{% else %}Generate My Daily Schedule{% endif %}</span>
+                    </button>
+                    <div class="loading-spinner" id="planner-loading" style="display: none;">
+                        <span class="spinner-circle"></span>
+                        <span>Gemini is optimizing your schedule...</span>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <!-- Plan Results Display -->
+        {% if plan_result %}
+            <section class="card plan-results-card" id="plan-results">
+                <!-- AI Generated Label -->
+                <div class="ai-generated-banner">
+                    <span class="ai-sparkle">✨</span>
+                    <span class="banner-title">AI-Generated Schedule Suggestion</span>
+                    <span class="banner-note">— Unsaved proposal for your review</span>
+                </div>
+
+                <!-- Daily Summary Metrics -->
+                <div class="plan-metrics-bar">
+                    <div class="plan-metric">
+                        <span class="label">Planned Focus Time</span>
+                        <span class="value">{{ plan_result.total_planned_minutes }} mins ({{ plan_result.total_planned_minutes|floatformat:0 }}m)</span>
+                    </div>
+                    {% if plan_result.available_minutes %}
+                        <div class="plan-metric">
+                            <span class="label">Available Window</span>
+                            <span class="value">{{ plan_result.available_minutes }} mins</span>
+                        </div>
+                        <div class="plan-metric">
+                            <span class="label">Schedule Fit</span>
+                            {% if plan_result.fits_in_available_time %}
+                                <span class="badge badge-success">Fits within time limit &#10003;</span>
+                            {% else %}
+                                <span class="badge badge-overdue">Exceeds available time</span>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                    <div class="plan-metric">
+                        <span class="label">Tasks Scheduled</span>
+                        <span class="value">{{ plan_result.schedule|length }} of {{ pending_tasks.count }}</span>
+                    </div>
+                </div>
+
+                <!-- Daily Focus Tip -->
+                {% if plan_result.focus_tip %}
+                    <div class="focus-tip-box">
+                        <div class="tip-icon">💡</div>
+                        <div class="tip-text">
+                            <strong>Daily Focus Insight:</strong> {{ plan_result.focus_tip }}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Time-blocked Timeline -->
+                <h4 class="timeline-title">Sequential Schedule</h4>
+                <div class="schedule-timeline">
+                    {% for item in plan_result.schedule %}
+                        <div class="timeline-block" id="schedule-block-{{ item.task_id }}">
+                            <div class="time-col">
+                                <span class="time-badge">{{ item.start_time }} – {{ item.end_time }}</span>
+                                <span class="duration-tag">{{ item.duration_minutes }} min</span>
+                            </div>
+
+                            <div class="timeline-connector">
+                                <span class="connector-dot"></span>
+                                <span class="connector-line"></span>
+                            </div>
+
+                            <div class="task-col">
+                                <div class="task-col-header">
+                                    <h5 class="task-title">{{ item.title }}</h5>
+                                    <div class="task-tags">
+                                        <span class="badge badge-priority badge-priority-{{ item.priority }}">{{ item.priority|title }}</span>
+                                        <span class="badge badge-category badge-category-{{ item.category }}">{{ item.category|title }}</span>
+                                    </div>
+                                </div>
+                                <p class="ai-reasoning">
+                                    <em>Reasoning:</em> {{ item.reasoning }}
+                                </p>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Deferred Tasks Section -->
+                {% if plan_result.deferred_tasks %}
+                    <div class="deferred-section">
+                        <h4 class="deferred-title">Deferred / Later Tasks ({{ plan_result.deferred_tasks|length }})</h4>
+                        <p class="subtitle">These pending tasks could not fit into today's available time without overload. They remain pending in your task list for tomorrow:</p>
+                        <ul class="deferred-list">
+                            {% for dtask in plan_result.deferred_tasks %}
+                                <li class="deferred-item">
+                                    <span class="deferred-name">{{ dtask.title }}</span>
+                                    <span class="badge badge-priority badge-priority-{{ dtask.priority }}">{{ dtask.get_priority_display }}</span>
+                                    {% if dtask.estimated_duration %}
+                                        <span class="meta-duration">{{ dtask.estimated_duration }}m</span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+
+                <!-- Action Footnote -->
+                <div class="planner-footer-note">
+                    <p><em>Note: This schedule is an AI-generated suggestion to guide your workday. Tasks are not marked complete or modified until you update them.</em></p>
+                    <div class="planner-actions-row">
+                        <a href="{% url 'task_list' %}" class="btn btn-primary">Return to Tasks</a>
+                        <form method="POST" action="{% url 'daily_planner' %}" style="display:inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="available_time_input" value="{{ available_time_input }}">
+                            <button type="submit" class="btn btn-secondary">Regenerate Plan</button>
+                        </form>
+                    </div>
+                </div>
+            </section>
+        {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Loading state for AI planner
+    const plannerForm = document.getElementById('planner-form');
+    if (plannerForm) {
+        plannerForm.addEventListener('submit', function() {
+            const btn = document.getElementById('btn-generate-plan');
+            const spinner = document.getElementById('planner-loading');
+            if (btn && spinner) {
+                btn.style.display = 'none';
+                spinner.style.display = 'flex';
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends 'myapp/base.html' %}
+
+{% block title %}429 — Too Many Requests | DevHelp AI{% endblock %}
+
+{% block content %}
+<div class="error-page-wrapper">
+    <div class="card error-page-card">
+        <div class="error-badge-pill error-badge-warning">HTTP 429</div>
+        <h1 class="error-page-title">Too Many Requests</h1>
+        <p class="error-page-desc">You have exceeded our temporary rate limits. To protect server health and AI quota, requests are temporarily throttled.</p>
+        
+        <div class="error-solutions-box">
+            <h3>Recommendations</h3>
+            <ul>
+                <li>Please wait 30–60 seconds before sending additional requests.</li>
+                <li>Avoid rapid refreshing or automated scripts on interactive endpoints.</li>
+                <li>If you are integrating with our API, implement exponential backoff.</li>
+            </ul>
+        </div>
+
+        <div class="error-actions-row">
+            <a href="{% url 'home' %}" class="btn btn-primary">Return to Homepage</a>
+            <a href="{% url 'error_detail' '429' %}" class="btn btn-secondary">Read 429 Guide</a>
+            <button type="button" class="btn btn-text" onclick="toggleChatWindow(true)">Ask Assistant</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

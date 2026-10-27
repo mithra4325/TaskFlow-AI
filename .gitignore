@@ -1,0 +1,90 @@
+# ==============================================================================
+# Git Ignore Rules for TaskFlow AI
+# ==============================================================================
+
+# Environment variables & secrets (CRITICAL: NEVER COMMIT SECRETS)
+.env
+.env.*
+.env.local
+!.env.example
+
+# Local SQLite databases, journals & backups (CRITICAL: PRESERVE LOCALLY ONLY)
+db.sqlite3
+db.sqlite3-journal
+db.sqlite3-shm
+db.sqlite3-wal
+db.sqlite3.backup*
+*.sqlite3
+*.sqlite3*
+*.backup
+*.backup*
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env_venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs & temporary files
+*.log
+test_err.log
+devhelp.log
+local_settings.py
+celerybeat-schedule
+celerybeat.pid
+
+# Testing & coverage artifacts
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+scratch/
+
+# Static collection build artifact (generated on server via collectstatic)
+staticfiles/
+
+# IDE & Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+.DS_Store
+Thumbs.db
