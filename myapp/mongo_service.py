@@ -19,7 +19,7 @@ DEFAULT_DB_NAME = 'devhelp_ai'
 
 
 def get_mongo_client():
-    """Attempt to initialize a PyMongo client with a short fail-fast timeout."""
+    """Attempt to initialize a PyMongo client with a resilient timeout."""
     uri = os.environ.get('MONGODB_URI', '').strip()
     if not uri:
         return None, "MONGODB_URI environment variable is not configured."
@@ -29,9 +29,9 @@ def get_mongo_client():
         import certifi
 
         kwargs = {
-            'serverSelectionTimeoutMS': 2500,
-            'connectTimeoutMS': 2500,
-            'socketTimeoutMS': 2500,
+            'serverSelectionTimeoutMS': 5000,
+            'connectTimeoutMS': 5000,
+            'socketTimeoutMS': 5000,
         }
         try:
             kwargs['tlsCAFile'] = certifi.where()
@@ -41,8 +41,13 @@ def get_mongo_client():
         client = MongoClient(uri, **kwargs)
         return client, None
     except Exception as exc:
-        logger.warning(f"Could not initialize PyMongo client: {type(exc).__name__}")
-        return None, str(type(exc).__name__)
+        err_msg = str(exc)
+        if 'TLSV1_ALERT_INTERNAL_ERROR' in err_msg or 'alert number 80' in err_msg:
+            safe_err = "Atlas SSL Handshake Failed: Client IP not allowed in MongoDB Atlas Network Access"
+        else:
+            safe_err = f"{type(exc).__name__}"
+        logger.warning(f"Could not initialize PyMongo client: {safe_err}")
+        return None, safe_err
 
 
 def get_mongo_db():
@@ -51,12 +56,19 @@ def get_mongo_db():
     if not client:
         return None, err
     try:
-        # Get default database specified in URI or use DEFAULT_DB_NAME
+        # Default database specified in URI or use DEFAULT_DB_NAME ('devhelp_ai')
         db = client.get_default_database(default=DEFAULT_DB_NAME)
+        if db.name in ['admin', 'local', 'test'] and DEFAULT_DB_NAME:
+            return client[DEFAULT_DB_NAME], None
         return db, None
     except Exception as exc:
-        logger.warning(f"Failed to access MongoDB database: {type(exc).__name__}")
-        return None, str(type(exc).__name__)
+        err_msg = str(exc)
+        if 'TLSV1_ALERT_INTERNAL_ERROR' in err_msg or 'alert number 80' in err_msg:
+            safe_err = "Atlas SSL Handshake Failed: Client IP not allowed in MongoDB Atlas Network Access"
+        else:
+            safe_err = f"{type(exc).__name__}"
+        logger.warning(f"Failed to access MongoDB database: {safe_err}")
+        return None, safe_err
 
 
 def log_chat_interaction(conversation_id: str, user_message: str, assistant_response: str,
@@ -69,6 +81,7 @@ def log_chat_interaction(conversation_id: str, user_message: str, assistant_resp
     """
     db, err = get_mongo_db()
     if db is None:
+        logger.warning(f"Skipping chat log write — MongoDB offline or inaccessible: {err}")
         return False, f"MongoDB offline: {err}"
 
     try:
@@ -84,10 +97,16 @@ def log_chat_interaction(conversation_id: str, user_message: str, assistant_resp
             'timestamp': datetime.utcnow(),
         }
         res = collection.insert_one(document)
+        logger.info(f"Chat log document successfully written to MongoDB collection 'chat_logs' (ID: {res.inserted_id})")
         return True, str(res.inserted_id)
     except Exception as exc:
-        logger.warning(f"Failed to save chat log to MongoDB: {type(exc).__name__}")
-        return False, f"Persistence error: {type(exc).__name__}"
+        err_msg = str(exc)
+        if 'TLSV1_ALERT_INTERNAL_ERROR' in err_msg or 'alert number 80' in err_msg:
+            safe_detail = "Atlas SSL Handshake Failed: Client IP not allowed in MongoDB Atlas Network Access"
+        else:
+            safe_detail = f"{type(exc).__name__}"
+        logger.warning(f"Failed to save chat log to MongoDB: {safe_detail}")
+        return False, f"Persistence error: {safe_detail}"
 
 
 def record_chat_feedback(conversation_id: str, log_id: str = None,
@@ -99,36 +118,44 @@ def record_chat_feedback(conversation_id: str, log_id: str = None,
     """
     db, err = get_mongo_db()
     if db is None:
+        logger.warning(f"Skipping feedback write — MongoDB offline or inaccessible: {err}")
         return False, f"MongoDB offline: {err}"
 
     try:
         feedback_coll = db['chat_feedback']
+        clean_log_id = str(log_id).strip() if log_id and str(log_id).strip().lower() not in ['none', 'null', ''] else None
         feedback_doc = {
             'conversation_id': conversation_id,
-            'log_id': log_id,
+            'log_id': clean_log_id,
             'feedback_type': feedback_type,  # 'thumbs_up' or 'thumbs_down'
             'comment': (comment or '').strip()[:500],
             'timestamp': datetime.utcnow(),
         }
-        feedback_coll.insert_one(feedback_doc)
+        res = feedback_coll.insert_one(feedback_doc)
+        logger.info(f"Feedback document successfully written to MongoDB collection 'chat_feedback' (ID: {res.inserted_id})")
 
-        # Also update the original chat log document if log_id provided
-        if log_id:
+        # Also update the original chat log document if valid log_id provided
+        if clean_log_id and len(clean_log_id) == 24:
             try:
                 from bson.objectid import ObjectId
                 chat_coll = db['chat_logs']
                 helpful_val = True if feedback_type == 'thumbs_up' else False
                 chat_coll.update_one(
-                    {'_id': ObjectId(log_id)},
+                    {'_id': ObjectId(clean_log_id)},
                     {'$set': {'helpful': helpful_val, 'feedback_comment': (comment or '').strip()[:500]}}
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Could not update linked chat log {clean_log_id}: {type(e).__name__}")
 
         return True, "Feedback recorded successfully in MongoDB."
     except Exception as exc:
-        logger.warning(f"Failed to record chat feedback in MongoDB: {type(exc).__name__}")
-        return False, f"Feedback persistence error: {type(exc).__name__}"
+        err_msg = str(exc)
+        if 'TLSV1_ALERT_INTERNAL_ERROR' in err_msg or 'alert number 80' in err_msg:
+            safe_detail = "Atlas SSL Handshake Failed: Client IP not allowed in MongoDB Atlas Network Access"
+        else:
+            safe_detail = f"{type(exc).__name__}"
+        logger.warning(f"Failed to record chat feedback in MongoDB: {safe_detail}")
+        return False, f"Feedback persistence error: {safe_detail}"
 
 
 def check_mongo_connection() -> dict:

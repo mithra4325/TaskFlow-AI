@@ -515,6 +515,9 @@ def chat_api(request):
         ticket_reference=ai_result.get('ticket_reference'),
     )
 
+    if not mongo_success:
+        logger.warning(f"[Chat API] MongoDB chat log was NOT saved for conversation {conversation_id[:16]}: {log_id}")
+
     return JsonResponse({
         'reply': ai_result['reply'],
         'sources': ai_result['sources'],
@@ -549,6 +552,9 @@ def chat_feedback_api(request):
         feedback_type=feedback_type,
         comment=comment,
     )
+
+    if not success:
+        logger.warning(f"[Chat Feedback API] MongoDB feedback was NOT saved for conversation {conversation_id[:16]}: {msg}")
 
     return JsonResponse({
         'success': success,
