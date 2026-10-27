@@ -99,8 +99,8 @@ WSGI_APPLICATION = 'myproject.wsgi.application'
 # Supports SQLite by default; seamlessly switches to PostgreSQL if DATABASE_URL is provided in deployment.
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
-if DATABASE_URL.startswith(('postgres://', 'postgresql://')):
-    # Extract PostgreSQL configuration safely (compatible with Neon, Supabase, Vercel Postgres)
+if DATABASE_URL.startswith(('postgres://', 'postgresql://', 'postgresql+psycopg2://')):
+    # Extract PostgreSQL configuration safely (compatible with Neon, Supabase, Vercel Postgres, AWS RDS)
     import urllib.parse
     url = urllib.parse.urlparse(DATABASE_URL)
     db_options = {}
@@ -113,12 +113,13 @@ if DATABASE_URL.startswith(('postgres://', 'postgresql://')):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': url.path.lstrip('/'),
-            'USER': url.username,
-            'PASSWORD': url.password,
+            'NAME': urllib.parse.unquote(url.path.lstrip('/')),
+            'USER': urllib.parse.unquote(url.username or ''),
+            'PASSWORD': urllib.parse.unquote(url.password or ''),
             'HOST': url.hostname,
             'PORT': url.port or 5432,
             'OPTIONS': db_options,
+            'CONN_MAX_AGE': int(os.environ.get('CONN_MAX_AGE', '0')),
         }
     }
 else:
@@ -170,6 +171,8 @@ STORAGES = {
 WHITENOISE_MANIFEST_STRICT = False
 
 # HTTPS & Security Settings (active when SECURE_SSL_REDIRECT=True in production)
+# Honor X-Forwarded-Proto for request.is_secure() behind reverse proxies like Vercel
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False').lower() in ('true', '1', 'yes')
 SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
 CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
