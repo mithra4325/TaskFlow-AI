@@ -154,7 +154,7 @@ Because the local SQLite database (`db.sqlite3`) is excluded from version contro
 python manage.py migrate
 
 # 2. Seed initial FAQs and Error Code Knowledge Base records
-python manage.py seed_devhelp_data
+python manage.py seed_devhelp
 ```
 
 This will automatically populate the SQL database with 12 curated FAQs and 8 error code guides.
@@ -220,10 +220,49 @@ curl http://127.0.0.1:8000/health/
 
 ---
 
+## 🚀 Deploying to Vercel (Native Django Support)
+
+TaskFlow AI is configured for Vercel's native Django framework support via `vercel.json` and WSGI entrypoint `myproject.wsgi:application`.
+
+### Step 1: Provision a Persistent Production PostgreSQL Database
+Because Vercel Functions run in a serverless, ephemeral, read-only environment, **do not use local SQLite in production**.
+1. Create a free PostgreSQL database on [Neon.tech](https://neon.tech), [Supabase](https://supabase.com), or [Vercel Postgres](https://vercel.com/docs/storage/vercel-postgres).
+2. Copy your pooled connection string (e.g., `postgresql://user:password@ep-xyz.neon.tech/neondb?sslmode=require`).
+
+### Step 2: Migrate and Seed the Production Database (From Local Terminal)
+Run migrations and populate the production database with **only the 12 FAQs and 8 error code guides** (your local tasks, users, and tickets are never copied):
+```powershell
+# Set the remote DATABASE_URL in your local session and apply schema
+$env:DATABASE_URL="postgresql://user:password@host/dbname?sslmode=require"
+python manage.py migrate
+
+# Seed only the legitimate verified FAQs and Error Codes into production SQL
+python manage.py seed_devhelp
+
+# Clear the variable to return to local SQLite
+$env:DATABASE_URL=""
+```
+
+### Step 3: Import Project into Vercel
+1. Log in to your [Vercel Dashboard](https://vercel.com/dashboard) and click **Add New...** -> **Project**.
+2. Select your GitHub repository: **`mithra4325/TaskFlow-AI`**.
+3. Vercel automatically detects the **Django** framework preset. Keep Root Directory as `./`.
+4. In **Environment Variables**, add:
+   - `SECRET_KEY`: A secure random secret string (e.g. `django-insecure-taskflow-prod-key-...`).
+   - `DEBUG`: `False`
+   - `ALLOWED_HOSTS`: `.vercel.app`
+   - `CSRF_TRUSTED_ORIGINS`: `https://*.vercel.app`
+   - `DATABASE_URL`: Your production PostgreSQL connection string from Step 1.
+   - `GEMINI_API_KEY`: Your Google Gemini API key.
+   - `MONGODB_URI`: Your MongoDB Atlas connection URI (for chat logs and feedback).
+5. Click **Deploy**. Vercel will install dependencies from `requirements.txt`, automatically collect static files to Vercel CDN, and serve your application.
+
+---
+
 ## 🔒 Data Preservation Notice (Local SQLite)
 
 - **Database Files Excluded**: In accordance with security and database best practices, local SQLite database files (`db.sqlite3`, `db.sqlite3-journal`, `*.backup`) are ignored by Git and **never uploaded to GitHub**.
-- **Schema & Seeding Preserved**: The repository contains all Django schema migrations (`myapp/migrations/`) and the seeding management command (`seed_devhelp_data`), enabling any developer to reproduce the database in seconds.
+- **Schema & Seeding Preserved**: The repository contains all Django schema migrations (`myapp/migrations/`) and the seeding management command (`seed_devhelp`), enabling any developer to reproduce the database in seconds.
 - **Zero Data Loss on Host Machine**: The developer's local `db.sqlite3` remains untouched on the local filesystem.
 
 ---

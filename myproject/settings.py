@@ -25,7 +25,27 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-t5ht=v1zb8t4jktf@d*52
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get('ALLOWED_HOSTS', '*').split(',') if h.strip()]
+# ALLOWED_HOSTS - Supports local dev, custom domain, and Vercel domains (.vercel.app)
+allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '').strip()
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+    if '.vercel.app' not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append('.vercel.app')
+else:
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.vercel.app']
+
+# CSRF Trusted Origins - Required for POST forms on HTTPS domains (e.g. *.vercel.app)
+csrf_trusted_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
+if csrf_trusted_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_trusted_env.split(',') if o.strip()]
+    if 'https://*.vercel.app' not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append('https://*.vercel.app')
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.vercel.app',
+        'http://localhost',
+        'http://127.0.0.1',
+    ]
 
 # External Integrations Configuration
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '').strip()
@@ -80,17 +100,25 @@ WSGI_APPLICATION = 'myproject.wsgi.application'
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
 
 if DATABASE_URL.startswith(('postgres://', 'postgresql://')):
-    # Extract PostgreSQL configuration safely
+    # Extract PostgreSQL configuration safely (compatible with Neon, Supabase, Vercel Postgres)
     import urllib.parse
     url = urllib.parse.urlparse(DATABASE_URL)
+    db_options = {}
+    query_params = urllib.parse.parse_qs(url.query)
+    if 'sslmode' in query_params:
+        db_options['sslmode'] = query_params['sslmode'][0]
+    elif url.hostname not in ('localhost', '127.0.0.1'):
+        db_options['sslmode'] = 'require'
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': url.path[1:],
+            'NAME': url.path.lstrip('/'),
             'USER': url.username,
             'PASSWORD': url.password,
             'HOST': url.hostname,
             'PORT': url.port or 5432,
+            'OPTIONS': db_options,
         }
     }
 else:
@@ -131,7 +159,21 @@ STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # WhiteNoise production storage
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+WHITENOISE_MANIFEST_STRICT = False
+
+# HTTPS & Security Settings (active when SECURE_SSL_REDIRECT=True in production)
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'False').lower() in ('true', '1', 'yes')
+SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'False').lower() in ('true', '1', 'yes')
+SECURE_HSTS_SECONDS = int(os.environ.get('SECURE_HSTS_SECONDS', '0'))
 
 
 # Logging Configuration
