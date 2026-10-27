@@ -289,9 +289,26 @@ def faq_list(request):
 
     faqs = base_qs.order_by('category', 'question')
 
+    # Display primary application categories in logical order
+    primary_categories = [
+        FAQ.Category.GETTING_STARTED,
+        FAQ.Category.TASKS_CATEGORIES,
+        FAQ.Category.AI_ASSISTANT,
+        FAQ.Category.TROUBLESHOOTING_SUPPORT,
+    ]
+    active_in_db = set(FAQ.objects.filter(is_published=True).values_list('category', flat=True))
+    categories_to_show = []
+    for code, label in FAQ.Category.choices:
+        if code in primary_categories:
+            if (code, label) not in categories_to_show:
+                categories_to_show.append((code, label))
+        elif code in active_in_db:
+            if (code, label) not in categories_to_show:
+                categories_to_show.append((code, label))
+
     return render(request, 'myapp/faq_list.html', {
         'faqs': faqs,
-        'categories': FAQ.Category.choices,
+        'categories': categories_to_show,
         'selected_category': selected_category,
         'search_query': query,
         'total_count': faqs.count(),

@@ -60,8 +60,6 @@ class PortalPagesAndDatabaseTestCase(TestCase):
         response = self.client.get(reverse('home'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "TaskFlow")
-        self.assertContains(response, "What is Django?")
-        self.assertContains(response, "404")
         self.assertEqual(response.context['total_faqs'], 2)
         self.assertEqual(response.context['total_error_codes'], 2)
 

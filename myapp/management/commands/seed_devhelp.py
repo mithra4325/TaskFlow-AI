@@ -9,90 +9,113 @@ class Command(BaseCommand):
         self.stdout.write("Seeding DevHelp AI FAQs and Error Codes...")
 
         faqs = [
+            # Category: Getting Started
             {
-                "question": "What is Django?",
-                "answer": "Django is a high-level Python web framework designed for rapid development and pragmatic, clean design. It follows the 'batteries-included' philosophy, offering a built-in Object-Relational Mapper (ORM), admin interface, user authentication, form handling, and robust security protections against CSRF, SQL injection, and XSS.",
-                "category": FAQ.Category.DJANGO,
-                "keywords": "django, framework, python, mvt, orm, batteries included",
+                "question": "What is TaskFlow AI?",
+                "answer": "TaskFlow AI is a task management web application that helps users organize tasks, track their completion, and access application help through an AI assistant. It also provides FAQs, an error code guide, and a support system.",
+                "category": FAQ.Category.GETTING_STARTED,
+                "keywords": "TaskFlow AI, overview, tasks, help",
             },
             {
-                "question": "What is the difference between a project and an app in Django?",
-                "answer": "A Django 'project' represents the entire web application and its overall configuration (settings, root URL routing, and database config). An 'app' is a self-contained, modular Python package within the project that serves a specific business function (such as users, blog, or store). A single project can compose multiple apps, and apps can be reused across different projects.",
-                "category": FAQ.Category.DJANGO,
-                "keywords": "project, app, architecture, settings, modularity",
+                "question": "How do I create a new task?",
+                "answer": "Open the My Tasks page and use the task creation form to enter the task details. Submit the form to save the task. The task will immediately appear in your task list and update your completion progress.",
+                "category": FAQ.Category.GETTING_STARTED,
+                "keywords": "create task, add task, new task, My Tasks",
             },
             {
-                "question": "What is a database migration?",
-                "answer": "A database migration is Django's mechanism for propagating Python model changes (such as adding fields, modifying constraints, or creating tables) into your SQL database schema. Running 'python manage.py makemigrations' packages your model modifications into version-controlled migration files, and 'python manage.py migrate' applies them to the database safely without manual SQL scripts.",
-                "category": FAQ.Category.DATABASE,
-                "keywords": "migration, makemigrations, migrate, schema, sql, orm",
+                "question": "How do I mark a task as completed?",
+                "answer": "Find the task in your task list on the My Tasks or Dashboard page and use its completion checkbox or Done button. The task's completion status updates immediately and remains saved in the database when you revisit or refresh the page.",
+                "category": FAQ.Category.GETTING_STARTED,
+                "keywords": "complete task, task status, checkbox, progress",
+            },
+
+            # Category: Tasks & Categories
+            {
+                "question": "Can I delete a task?",
+                "answer": "Yes. On the My Tasks page, locate the relevant task and click its delete trash icon. A browser confirmation dialog will ask you to confirm deletion. Once confirmed, the task is permanently removed from the database.",
+                "category": FAQ.Category.TASKS_CATEGORIES,
+                "keywords": "delete task, remove task, task management",
             },
             {
-                "question": "What does an environment variable do?",
-                "answer": "An environment variable is a dynamic key-value pair maintained outside your codebase by the operating system or runtime environment. In web development, environment variables decouple sensitive secrets (API keys, SECRET_KEY, database passwords) and environment-specific settings (DEBUG=True/False, ALLOWED_HOSTS) from source code, complying with the Twelve-Factor App methodology.",
-                "category": FAQ.Category.SECURITY,
-                "keywords": "env, environment variable, dotenv, secrets, 12factor, security",
+                "question": "What are categories used for?",
+                "answer": "Categories (such as Work, Study, Personal, and Other) help users group and organize related tasks. You can assign a category when creating or editing any task, and review progress and task counts by category on the Categories page.",
+                "category": FAQ.Category.TASKS_CATEGORIES,
+                "keywords": "categories, organize tasks, task grouping",
             },
             {
-                "question": "How do I create a virtual environment?",
-                "answer": "A virtual environment isolates Python dependencies per project to avoid package version conflicts. On Windows/Linux/macOS, run:\n1. 'python -m venv venv' to create the environment folder.\n2. Activate it on Windows: '.\\venv\\Scripts\\activate' (or 'source venv/bin/activate' on macOS/Linux).\n3. Install project dependencies: 'pip install -r requirements.txt'.",
-                "category": FAQ.Category.PYTHON,
-                "keywords": "venv, virtual environment, pip, dependencies, isolation",
+                "question": "Will my tasks remain saved when I leave the website?",
+                "answer": "Yes. Tasks saved to the application are stored in the SQL database (SQLite locally or PostgreSQL in production) and persist when you navigate away, refresh, or reopen the website.",
+                "category": FAQ.Category.TASKS_CATEGORIES,
+                "keywords": "save tasks, persistence, database, task history",
+            },
+
+            # Category: AI Assistant
+            {
+                "question": "What can the AI assistant help me with?",
+                "answer": "The AI assistant helps users understand the application's features, find answers to FAQs, and troubleshoot supported error codes (such as 400, 404, 500, or DEV001). It can also guide you on when and how to submit a support ticket.",
+                "category": FAQ.Category.AI_ASSISTANT,
+                "keywords": "AI assistant, chatbot, help, troubleshooting",
             },
             {
-                "question": "What causes a 404 error?",
-                "answer": "An HTTP 404 Not Found error indicates that the server is operational but cannot locate the resource requested by the URL path. In Django, this occurs when the incoming URL pattern does not match any route defined in 'urlpatterns', or when an ORM lookup like 'get_object_or_404()' receives a primary key that does not exist in the database.",
-                "category": FAQ.Category.WEB_HTTP,
-                "keywords": "404, not found, url, routing, get_object_or_404, http",
+                "question": "What happens when the AI assistant cannot answer my question?",
+                "answer": "If the assistant cannot find a reliable answer, it explains that limitation and offers you a direct way to raise a support ticket on the Support page so a developer can review your issue.",
+                "category": FAQ.Category.AI_ASSISTANT,
+                "keywords": "AI limitations, support ticket, unanswered question",
             },
             {
-                "question": "What causes a 500 error?",
-                "answer": "An HTTP 500 Internal Server Error is a generic server-side failure indicating that the web application encountered an unhandled exception while processing the request. Common causes include unhandled Python exceptions (e.g., AttributeError, KeyError), database connection drops, syntax errors in templates, or missing third-party API error handling.",
-                "category": FAQ.Category.WEB_HTTP,
-                "keywords": "500, internal server error, exception, crash, traceback, bug",
+                "question": "Are my conversations with the AI assistant stored?",
+                "answer": "The application logs assistant conversations to MongoDB in the 'conversations' collection when MongoDB is configured. Recorded data includes your session identifier, message text, assistant response, source references, and timestamp for diagnostic and support review.",
+                "category": FAQ.Category.AI_ASSISTANT,
+                "keywords": "chat history, MongoDB, data storage, privacy",
+            },
+
+            # Category: Troubleshooting & Support
+            {
+                "question": "What should I do if a page does not load or shows an error?",
+                "answer": "Refresh the page and check whether the URL is correct. If the issue continues, consult the Error Code Guide (/errors/) for troubleshooting steps on the displayed error code (such as 404, 500, or DEV001). You can also ask the assistant for help or contact support.",
+                "category": FAQ.Category.TROUBLESHOOTING_SUPPORT,
+                "keywords": "page error, troubleshooting, error guide, website issue",
             },
             {
-                "question": "What does HTTP 429 mean?",
-                "answer": "HTTP 429 Too Many Requests signifies that the client has exceeded the server's rate limits or API quota within a given timeframe. To resolve it, inspect the 'Retry-After' response header, implement exponential backoff retry algorithms, utilize client-side caching, or upgrade API quota limits.",
-                "category": FAQ.Category.WEB_HTTP,
-                "keywords": "429, rate limit, quota, too many requests, retry-after, throttle",
+                "question": "How do I submit a support ticket?",
+                "answer": "Open the Support page (/support/) and complete the available ticket form with a subject and description of your problem (name, email, and error code are optional). Submit the form and you will receive a unique reference code (e.g., TICK-123456) to track your ticket status anytime.",
+                "category": FAQ.Category.TROUBLESHOOTING_SUPPORT,
+                "keywords": "support, ticket, report a problem, help",
             },
             {
-                "question": "How do I debug a Python error?",
-                "answer": "Effective Python debugging involves:\n1. Reading the traceback from the bottom up to identify the exact file, line number, and exception type.\n2. Reproducing the issue with a minimal reproducible example.\n3. Using Python's built-in breakpoint() or pdb to step through variables interactively.\n4. Adding structured logging with Python's logging module rather than bare print statements.\n5. Writing automated unit tests with Django's TestCase to verify edge conditions.",
-                "category": FAQ.Category.PYTHON,
-                "keywords": "debugging, traceback, pdb, breakpoint, logging, unit tests",
-            },
-            {
-                "question": "How do I keep API keys secure?",
-                "answer": "To protect API keys and sensitive credentials:\n1. Never hardcode credentials into source code, templates, or client-side JavaScript.\n2. Store keys in a local '.env' file during development and in environment variables on your production host.\n3. Add '.env' to your '.gitignore' file immediately before committing any code.\n4. Use placeholder templates like '.env.example' for team documentation.\n5. If a key is accidentally committed, revoke and rotate it immediately.",
-                "category": FAQ.Category.SECURITY,
-                "keywords": "api keys, security, credentials, gitignore, env, secret key",
-            },
-            {
-                "question": "What is CSRF and why does Django require CSRF tokens?",
-                "answer": "Cross-Site Request Forgery (CSRF) is an attack where an untrusted site trick a victim's browser into executing unwanted actions on a trusted site where the user is currently authenticated. Django protects against this by issuing a unique cryptographic CSRF token for each session via the '{% csrf_token %}' template tag and validating it on all incoming POST, PUT, and DELETE requests.",
-                "category": FAQ.Category.SECURITY,
-                "keywords": "csrf, security, post, csrfmiddlewaretoken, protection",
-            },
-            {
-                "question": "What is the difference between SQLite and PostgreSQL in production?",
-                "answer": "SQLite is a lightweight, serverless file-based SQL database ideal for local development, testing, and smaller workloads. PostgreSQL is a full client-server database capable of handling high concurrency, row-level locking, complex JSON querying, and horizontal connection pooling. Django's ORM allows you to develop with SQLite locally and switch to PostgreSQL in production simply by updating 'DATABASES['default']'.",
-                "category": FAQ.Category.DATABASE,
-                "keywords": "sqlite, postgresql, database, production, concurrency, orm",
+                "question": "What happens to the feedback I submit?",
+                "answer": "Feedback submitted through the AI assistant is stored in MongoDB in the 'feedback' collection along with your session identifier and timestamp so it can be reviewed to improve assistant accuracy and application reliability.",
+                "category": FAQ.Category.TROUBLESHOOTING_SUPPORT,
+                "keywords": "feedback, MongoDB, suggestions, improvement",
             },
         ]
 
-        faq_count = 0
-        for data in faqs:
-            _, created = FAQ.objects.update_or_create(
-                question=data["question"],
-                defaults=data,
-            )
-            if created:
-                faq_count += 1
+        # Update existing records in-place rather than inserting duplicates
+        existing_faqs = list(FAQ.objects.order_by('id'))
+        for idx, data in enumerate(faqs):
+            if idx < len(existing_faqs):
+                faq_obj = existing_faqs[idx]
+                faq_obj.question = data["question"]
+                faq_obj.answer = data["answer"]
+                faq_obj.category = data["category"]
+                faq_obj.keywords = data["keywords"]
+                faq_obj.is_published = True
+                faq_obj.save()
+            else:
+                FAQ.objects.create(
+                    question=data["question"],
+                    answer=data["answer"],
+                    category=data["category"],
+                    keywords=data["keywords"],
+                    is_published=True,
+                )
 
-        self.stdout.write(self.style.SUCCESS(f"Successfully processed {len(faqs)} FAQs (created {faq_count} new)."))
+        # Delete any superfluous records beyond the 12
+        if len(existing_faqs) > len(faqs):
+            for extra in existing_faqs[len(faqs):]:
+                extra.delete()
+
+        self.stdout.write(self.style.SUCCESS(f"Successfully updated exactly {len(faqs)} FAQs in SQL database."))
 
         error_codes = [
             {

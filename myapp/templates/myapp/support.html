@@ -17,13 +17,6 @@
         </div>
     </section>
 
-    <!-- Privacy Notice -->
-    <div class="privacy-notice-banner">
-        <div class="privacy-text">
-            <strong>Privacy Assurance:</strong>
-            Support tickets are stored in a private SQL database. Details are confidential and not displayed publicly.
-        </div>
-    </div>
 
     <!-- Ticket Confirmation Card if Just Submitted -->
     {% if submitted_ticket %}
@@ -141,20 +134,6 @@
                 {% endif %}
             </section>
 
-            <!-- Self-Service Links -->
-            <section class="card">
-                <h3 class="mini-section-label">Quick Links</h3>
-                <div class="quick-nav-cards">
-                    <a href="{% url 'faq_list' %}" class="quick-nav-card">
-                        <strong>FAQs &rarr;</strong>
-                        <span>Browse solutions for common development questions.</span>
-                    </a>
-                    <a href="{% url 'error_guide' %}" class="quick-nav-card">
-                        <strong>Error Code Guide &rarr;</strong>
-                        <span>Troubleshooting steps for HTTP status codes.</span>
-                    </a>
-                </div>
-            </section>
         </div>
     </div>
 </div>

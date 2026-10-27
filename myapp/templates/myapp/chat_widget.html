@@ -242,9 +242,12 @@
     }
 
     function sendQuickPrompt(promptText) {
+        toggleChatWindow(true);
         const input = document.getElementById('chat-user-input');
-        input.value = promptText;
-        handleChatSubmit(null);
+        if (input) {
+            input.value = promptText;
+            handleChatSubmit(null);
+        }
     }
 
     async function triggerTicketEscalation(contextText) {

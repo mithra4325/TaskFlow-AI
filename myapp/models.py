@@ -52,8 +52,14 @@ class Task(models.Model):
 
 
 class FAQ(models.Model):
-    """Frequently Asked Questions for DevHelp AI developer support."""
+    """Frequently Asked Questions for TaskFlow AI task management and support."""
     class Category(models.TextChoices):
+        GETTING_STARTED = 'Getting Started', 'Getting Started'
+        TASKS_CATEGORIES = 'Tasks & Categories', 'Tasks & Categories'
+        AI_ASSISTANT = 'AI Assistant', 'AI Assistant'
+        TROUBLESHOOTING_SUPPORT = 'Troubleshooting & Support', 'Troubleshooting & Support'
+
+        # Legacy choices for backward compatibility
         DJANGO = 'Django', 'Django Framework'
         PYTHON = 'Python', 'Python Programming'
         WEB_HTTP = 'Web & HTTP', 'Web & HTTP Protocols'
