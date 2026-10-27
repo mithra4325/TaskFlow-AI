@@ -4,22 +4,41 @@
 
 Built with **Django 6**, **Google Gemini GenAI**, **MongoDB (NoSQL)**, **SQLite / PostgreSQL (SQL)**, and a **Dark Glassmorphism** user interface.
 
+## 🌐 Live Demo
+
+- **Website**: [https://taskflow-omega-ruddy-39.vercel.app](https://taskflow-omega-ruddy-39.vercel.app/)
+- **Health Check**: [https://taskflow-omega-ruddy-39.vercel.app/health/](https://taskflow-omega-ruddy-39.vercel.app/health/)
+
+| Page / Feature | Live Production URL | Local Development URL |
+| :--- | :--- | :--- |
+| **Dashboard** | [https://taskflow-omega-ruddy-39.vercel.app/dashboard/](https://taskflow-omega-ruddy-39.vercel.app/dashboard/) | `http://127.0.0.1:8000/dashboard/` |
+| **Tasks Board** | [https://taskflow-omega-ruddy-39.vercel.app/tasks/](https://taskflow-omega-ruddy-39.vercel.app/tasks/) | `http://127.0.0.1:8000/tasks/` |
+| **Categories** | [https://taskflow-omega-ruddy-39.vercel.app/categories/](https://taskflow-omega-ruddy-39.vercel.app/categories/) | `http://127.0.0.1:8000/categories/` |
+| **FAQs** | [https://taskflow-omega-ruddy-39.vercel.app/faqs/](https://taskflow-omega-ruddy-39.vercel.app/faqs/) | `http://127.0.0.1:8000/faqs/` |
+| **Error Guide** | [https://taskflow-omega-ruddy-39.vercel.app/errors/](https://taskflow-omega-ruddy-39.vercel.app/errors/) | `http://127.0.0.1:8000/errors/` |
+| **Support Hub** | [https://taskflow-omega-ruddy-39.vercel.app/support/](https://taskflow-omega-ruddy-39.vercel.app/support/) | `http://127.0.0.1:8000/support/` |
+| **About Platform** | [https://taskflow-omega-ruddy-39.vercel.app/about/](https://taskflow-omega-ruddy-39.vercel.app/about/) | `http://127.0.0.1:8000/about/` |
+| **System Health API** | [https://taskflow-omega-ruddy-39.vercel.app/health/](https://taskflow-omega-ruddy-39.vercel.app/health/) | `http://127.0.0.1:8000/health/` |
+| **Django Admin** | [https://taskflow-omega-ruddy-39.vercel.app/admin/](https://taskflow-omega-ruddy-39.vercel.app/admin/) | `http://127.0.0.1:8000/admin/` |
+
 ---
 
 ## 📖 Table of Contents
-1. [Project Overview](#-project-overview)
-2. [Actual Implemented Features](#-actual-implemented-features)
-3. [Architecture & Technology Stack](#-architecture--technology-stack)
-4. [Prerequisites](#-prerequisites)
-5. [Windows Setup & Installation Instructions](#-windows-setup--installation-instructions)
-6. [Environment Variables Configuration](#-environment-variables-configuration)
-7. [Database Setup & Migrations](#-database-setup--migrations)
-8. [Creating a Django Superuser](#-creating-a-django-superuser)
-9. [Running the Development Server](#-running-the-development-server)
-10. [Automated Testing & Health Checks](#-automated-testing--health-checks)
-11. [Data Preservation Notice (Local SQLite)](#-data-preservation-notice-local-sqlite)
-12. [Known Limitations & Future Improvement](#-known-limitations--future-improvement)
-13. [License & Credits](#-license--credits)
+1. [Live Demo](#-live-demo)
+2. [Project Overview](#-project-overview)
+3. [Actual Implemented Features](#-actual-implemented-features)
+4. [Architecture & Technology Stack](#-architecture--technology-stack)
+5. [Prerequisites](#-prerequisites)
+6. [Windows Setup & Installation Instructions](#-windows-setup--installation-instructions)
+7. [Environment Variables Configuration](#-environment-variables-configuration)
+8. [Database Setup & Migrations](#-database-setup--migrations)
+9. [Creating a Django Superuser](#-creating-a-django-superuser)
+10. [Running the Development Server](#-running-the-development-server)
+11. [Automated Testing & Health Checks](#-automated-testing--health-checks)
+12. [Deploying to Vercel (Native Django Support)](#-deploying-to-vercel-native-django-support)
+13. [Data Preservation Notice (Local SQLite)](#-data-preservation-notice-local-sqlite)
+14. [Known Limitations & Future Improvement](#-known-limitations--future-improvement)
+15. [License & Credits](#-license--credits)
 
 ---
 
@@ -181,7 +200,13 @@ Start the local Django development server:
 python manage.py runserver
 ```
 
-Open your browser and navigate to:
+### 🌐 Live Production Application
+Access the deployed application on Vercel:
+- **Website**: [https://taskflow-omega-ruddy-39.vercel.app](https://taskflow-omega-ruddy-39.vercel.app/)
+- **Health Check**: [https://taskflow-omega-ruddy-39.vercel.app/health/](https://taskflow-omega-ruddy-39.vercel.app/health/)
+
+### 💻 Local Development URLs
+When running locally, navigate to:
 - **Application Dashboard**: [http://127.0.0.1:8000/](http://127.0.0.1:8000/) or [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/)
 - **My Tasks**: [http://127.0.0.1:8000/tasks/](http://127.0.0.1:8000/tasks/)
 - **Categories**: [http://127.0.0.1:8000/categories/](http://127.0.0.1:8000/categories/)
@@ -213,8 +238,12 @@ OK
 System check identified no issues (0 silenced).
 ```
 
-To verify the live health status programmatically:
+To verify health status programmatically:
 ```powershell
+# Check live production deployment health
+curl https://taskflow-omega-ruddy-39.vercel.app/health/
+
+# Or check local development server health
 curl http://127.0.0.1:8000/health/
 ```
 
@@ -223,6 +252,11 @@ curl http://127.0.0.1:8000/health/
 ## 🚀 Deploying to Vercel (Native Django Support)
 
 TaskFlow AI is configured for Vercel's native Django framework support via `vercel.json` and WSGI entrypoint `myproject.wsgi:application`.
+
+### 🌐 Live Production Deployment
+- **Website**: [https://taskflow-omega-ruddy-39.vercel.app](https://taskflow-omega-ruddy-39.vercel.app/)
+- **Health Check**: [https://taskflow-omega-ruddy-39.vercel.app/health/](https://taskflow-omega-ruddy-39.vercel.app/health/)
+- **Status**: Live & Healthy (connected to PostgreSQL, MongoDB Atlas, and Gemini AI).
 
 ### Step 1: Provision a Persistent Production PostgreSQL Database
 Because Vercel Functions run in a serverless, ephemeral, read-only environment, **do not use local SQLite in production**.

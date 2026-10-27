@@ -32,7 +32,7 @@ if allowed_hosts_env:
     if '.vercel.app' not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append('.vercel.app')
 else:
-    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.vercel.app']
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '.vercel.app', 'taskflow-omega-ruddy-39.vercel.app']
 
 # CSRF Trusted Origins - Required for POST forms on HTTPS domains (e.g. *.vercel.app)
 csrf_trusted_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
@@ -40,9 +40,12 @@ if csrf_trusted_env:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_trusted_env.split(',') if o.strip()]
     if 'https://*.vercel.app' not in CSRF_TRUSTED_ORIGINS:
         CSRF_TRUSTED_ORIGINS.append('https://*.vercel.app')
+    if 'https://taskflow-omega-ruddy-39.vercel.app' not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append('https://taskflow-omega-ruddy-39.vercel.app')
 else:
     CSRF_TRUSTED_ORIGINS = [
         'https://*.vercel.app',
+        'https://taskflow-omega-ruddy-39.vercel.app',
         'http://localhost',
         'http://127.0.0.1',
     ]
