@@ -12,7 +12,7 @@
 
     <!-- Search & Filter Controls -->
     <section class="toolbar-section">
-        <form method="GET" action="{% url 'faq_list' %}" class="filter-search-form" id="faq-search-form">
+        <form method="GET" action="{% url 'faq_list' %}" class="filter-search-form" id="faq-search-form" onsubmit="event.preventDefault(); applyFaqFilters();">
             <!-- Search bar -->
             <div class="search-input-group">
                 <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -23,104 +23,274 @@
                     type="search" 
                     name="q" 
                     value="{{ search_query }}" 
-                    placeholder="Search" 
+                    placeholder="Search FAQs..." 
                     class="search-input"
                     id="faq-search-input"
+                    oninput="debounceFaqSearch()"
                 >
-                {% if search_query %}
-                    <a href="{% url 'faq_list' %}{% if selected_category %}?category={{ selected_category }}{% endif %}" class="search-clear-btn" title="Clear search">&times;</a>
-                {% endif %}
+                <a href="{% url 'faq_list' %}" class="search-clear-btn" id="faq-clear-btn" style="{% if not search_query %}display:none;{% endif %}" title="Clear search" onclick="clearFaqSearch(event)">&times;</a>
             </div>
 
             <!-- Category Filter Pills -->
-            <div class="filter-pills" role="tablist">
-                <a href="{% url 'faq_list' %}{% if search_query %}?q={{ search_query }}{% endif %}" 
-                   class="filter-pill {% if not selected_category %}active{% endif %}" id="cat-all">
+            <div class="filter-pills" role="tablist" id="faq-category-pills">
+                <button type="button" 
+                   class="filter-pill {% if not selected_category %}active{% endif %}" 
+                   id="cat-all"
+                   onclick="selectFaqCategory('')">
                    All Categories
-                </a>
+                </button>
                 {% for code, label in categories %}
-                    <a href="?category={{ code }}{% if search_query %}&q={{ search_query }}{% endif %}" 
-                       class="filter-pill {% if selected_category == code %}active{% endif %}" id="cat-{{ forloop.counter }}">
+                    <button type="button" 
+                       class="filter-pill {% if selected_category == code %}active{% endif %}" 
+                       id="cat-btn-{{ forloop.counter }}"
+                       data-cat="{{ code }}"
+                       onclick="selectFaqCategory('{{ code }}')">
                        {{ label }}
-                    </a>
+                    </button>
                 {% endfor %}
             </div>
 
-            {% if search_query or selected_category %}
-                <div class="toolbar-reset-wrap">
-                    <a href="{% url 'faq_list' %}" class="btn-reset-filters">Clear all filters</a>
-                </div>
-            {% endif %}
+            <div class="toolbar-reset-wrap" id="toolbar-reset-wrap" style="{% if not search_query and not selected_category %}display:none;{% endif %}">
+                <button type="button" class="btn-reset-filters" onclick="resetFaqFilters()">Clear all filters</button>
+            </div>
         </form>
     </section>
 
     <!-- FAQ Accordion List -->
     <section class="faq-list-section" aria-label="FAQ Accordion">
-        <div class="faq-list-count">
-            Showing <strong>{{ total_count }}</strong> verified FAQ{{ total_count|pluralize }}
+        <div class="faq-list-count" id="faq-list-count">
+            Showing <strong id="faq-count-num">{{ total_count }}</strong> verified FAQ{{ total_count|pluralize }}
         </div>
 
-        {% if faqs %}
-            <div class="faq-accordion" id="faq-accordion">
-                {% for faq in faqs %}
-                    <div class="faq-item-card" id="faq-{{ faq.id }}">
-                        <button type="button" class="faq-question-btn" onclick="toggleFaqAccordion({{ faq.id }})" aria-expanded="true" aria-controls="faq-ans-{{ faq.id }}">
-                            <div class="faq-title-wrap">
-                                <span class="badge badge-category badge-cat-sm">{{ faq.category }}</span>
-                                <h3 class="faq-question-text">{{ faq.question }}</h3>
-                            </div>
-                            <span class="faq-arrow-icon" id="faq-arrow-{{ faq.id }}">&#9660;</span>
-                        </button>
-                        <div class="faq-answer-panel" id="faq-ans-{{ faq.id }}" style="display: block;">
-                            <div class="faq-answer-content">
-                                <p>{{ faq.answer|linebreaksbr }}</p>
-                            </div>
-                            <div class="faq-meta-footer">
-                                {% if faq.keywords %}
-                                    <span class="faq-keywords">Tags: <code>{{ faq.keywords }}</code></span>
-                                {% endif %}
-                                <button type="button" class="btn btn-sm btn-text-accent" onclick="sendQuickPrompt('Tell me more about: {{ faq.question|escapejs }}')">
-                                    Discuss with Assistant &rarr;
-                                </button>
-                            </div>
+        <!-- Loading State Indicator -->
+        <div id="faq-loading" class="card" style="display: none; text-align: center; padding: 2.5rem; margin-top: 1rem;">
+            <div class="spinner-circle" style="margin: 0 auto 1rem; width: 36px; height: 36px; border: 3px solid rgba(56,189,248,0.2); border-top-color: var(--accent-electric); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+            <p style="color: var(--text-secondary);">Loading verified FAQs from database API...</p>
+        </div>
+
+        <!-- Error State Indicator -->
+        <div id="faq-error" class="card" style="display: none; text-align: center; padding: 2.5rem; margin-top: 1rem; border-color: rgba(248, 113, 113, 0.4);">
+            <h3 style="color: #f87171; margin-bottom: 0.5rem;">Failed to load FAQs</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1rem;">Could not retrieve FAQ records from the server. Please try again.</p>
+            <button type="button" class="btn btn-secondary" onclick="fetchFaqsFromApi()">Retry</button>
+        </div>
+
+        <!-- Dynamic Container for Accordion Items -->
+        <div class="faq-accordion" id="faq-accordion">
+            {% for faq in faqs %}
+                <div class="faq-item-card" id="faq-{{ faq.id }}">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqAccordion({{ faq.id }})" aria-expanded="true" aria-controls="faq-ans-{{ faq.id }}">
+                        <div class="faq-title-wrap">
+                            <span class="badge badge-category badge-cat-sm">{{ faq.category }}</span>
+                            <h3 class="faq-question-text">{{ faq.question }}</h3>
+                        </div>
+                        <span class="faq-arrow-icon" id="faq-arrow-{{ faq.id }}">&#9660;</span>
+                    </button>
+                    <div class="faq-answer-panel" id="faq-ans-{{ faq.id }}" style="display: block;">
+                        <div class="faq-answer-content">
+                            <p>{{ faq.answer|linebreaksbr }}</p>
+                        </div>
+                        <div class="faq-meta-footer">
+                            {% if faq.keywords %}
+                                <span class="faq-keywords">Tags: <code>{{ faq.keywords }}</code></span>
+                            {% endif %}
+                            <button type="button" class="btn btn-sm btn-text-accent" onclick="sendQuickPrompt('Tell me more about: {{ faq.question|escapejs }}')">
+                                Discuss with Assistant &rarr;
+                            </button>
                         </div>
                     </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <!-- Empty State -->
-            <div class="card empty-state" id="empty-state">
-                <div class="empty-icon-wrap" aria-hidden="true">
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
                 </div>
-                <h3>No FAQs matched your search</h3>
-                <p>We couldn't find any FAQs matching "{{ search_query }}". Try different keywords or ask our AI Support Assistant below.</p>
-                <div class="empty-actions" style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.5rem;">
-                    <a href="{% url 'faq_list' %}" class="btn btn-secondary">View All FAQs</a>
-                    <button type="button" class="btn btn-primary" onclick="sendQuickPrompt('{{ search_query|escapejs }}')">Ask Assistant</button>
-                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Empty State -->
+        <div class="card empty-state" id="empty-state" style="{% if faqs %}display: none;{% endif %}">
+            <div class="empty-icon-wrap" aria-hidden="true">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
             </div>
-        {% endif %}
+            <h3 id="empty-state-title">No FAQs matched your search</h3>
+            <p id="empty-state-desc">We couldn't find any FAQs matching your query. Try different keywords or ask our AI Support Assistant below.</p>
+            <div class="empty-actions" style="display: flex; gap: 0.5rem; justify-content: center; margin-top: 0.5rem;">
+                <button type="button" class="btn btn-secondary" onclick="resetFaqFilters()">View All FAQs</button>
+                <button type="button" class="btn btn-primary" onclick="sendQuickPrompt(currentSearchQuery)">Ask Assistant</button>
+            </div>
+        </div>
     </section>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<style>
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+</style>
 <script>
+    let currentCategory = "{{ selected_category|default:''|escapejs }}";
+    let currentSearchQuery = "{{ search_query|default:''|escapejs }}";
+    let searchDebounceTimer = null;
+
     function toggleFaqAccordion(id) {
         const panel = document.getElementById('faq-ans-' + id);
         const arrow = document.getElementById('faq-arrow-' + id);
         if (!panel) return;
         if (panel.style.display === 'none') {
             panel.style.display = 'block';
-            arrow.innerHTML = '&#9660;';
+            if (arrow) arrow.innerHTML = '&#9660;';
         } else {
             panel.style.display = 'none';
-            arrow.innerHTML = '&#9654;';
+            if (arrow) arrow.innerHTML = '&#9654;';
         }
+    }
+
+    function selectFaqCategory(catCode) {
+        currentCategory = catCode;
+        // Update pill active classes
+        document.querySelectorAll('#faq-category-pills .filter-pill').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        if (!catCode) {
+            const allBtn = document.getElementById('cat-all');
+            if (allBtn) allBtn.classList.add('active');
+        } else {
+            const targetBtn = document.querySelector(`[data-cat="${catCode}"]`);
+            if (targetBtn) targetBtn.classList.add('active');
+        }
+        applyFaqFilters();
+    }
+
+    function debounceFaqSearch() {
+        clearTimeout(searchDebounceTimer);
+        searchDebounceTimer = setTimeout(() => {
+            const input = document.getElementById('faq-search-input');
+            currentSearchQuery = input ? input.value.trim() : '';
+            const clearBtn = document.getElementById('faq-clear-btn');
+            if (clearBtn) clearBtn.style.display = currentSearchQuery ? 'inline' : 'none';
+            applyFaqFilters();
+        }, 250);
+    }
+
+    function clearFaqSearch(event) {
+        if (event) event.preventDefault();
+        const input = document.getElementById('faq-search-input');
+        if (input) input.value = '';
+        currentSearchQuery = '';
+        const clearBtn = document.getElementById('faq-clear-btn');
+        if (clearBtn) clearBtn.style.display = 'none';
+        applyFaqFilters();
+    }
+
+    function resetFaqFilters() {
+        currentCategory = '';
+        currentSearchQuery = '';
+        const input = document.getElementById('faq-search-input');
+        if (input) input.value = '';
+        const clearBtn = document.getElementById('faq-clear-btn');
+        if (clearBtn) clearBtn.style.display = 'none';
+        document.querySelectorAll('#faq-category-pills .filter-pill').forEach(btn => btn.classList.remove('active'));
+        const allBtn = document.getElementById('cat-all');
+        if (allBtn) allBtn.classList.add('active');
+        applyFaqFilters();
+    }
+
+    async function applyFaqFilters() {
+        const resetWrap = document.getElementById('toolbar-reset-wrap');
+        if (resetWrap) {
+            resetWrap.style.display = (currentCategory || currentSearchQuery) ? 'block' : 'none';
+        }
+        await fetchFaqsFromApi();
+    }
+
+    async function fetchFaqsFromApi() {
+        const loadingEl = document.getElementById('faq-loading');
+        const errorEl = document.getElementById('faq-error');
+        const accordionEl = document.getElementById('faq-accordion');
+        const emptyEl = document.getElementById('empty-state');
+        const countNum = document.getElementById('faq-count-num');
+
+        if (loadingEl) loadingEl.style.display = 'block';
+        if (errorEl) errorEl.style.display = 'none';
+
+        try {
+            const params = new URLSearchParams();
+            if (currentCategory) params.set('category', currentCategory);
+            if (currentSearchQuery) params.set('q', currentSearchQuery);
+
+            const res = await fetch(`/api/faqs/?${params.toString()}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            if (loadingEl) loadingEl.style.display = 'none';
+
+            if (countNum) countNum.textContent = data.total_count || 0;
+
+            if (!data.faqs || data.faqs.length === 0) {
+                accordionEl.innerHTML = '';
+                if (emptyEl) {
+                    emptyEl.style.display = 'block';
+                    const desc = document.getElementById('empty-state-desc');
+                    if (desc) {
+                        desc.textContent = currentSearchQuery 
+                            ? `We couldn't find any FAQs matching "${currentSearchQuery}". Try different keywords or ask our AI Support Assistant below.`
+                            : 'No FAQs available in this category.';
+                    }
+                }
+            } else {
+                if (emptyEl) emptyEl.style.display = 'none';
+                renderFaqs(data.faqs);
+            }
+        } catch (err) {
+            console.error('[FAQs API]', err);
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (errorEl) errorEl.style.display = 'block';
+        }
+    }
+
+    function renderFaqs(faqs) {
+        const accordionEl = document.getElementById('faq-accordion');
+        if (!accordionEl) return;
+
+        let html = '';
+        faqs.forEach(faq => {
+            const escapedQ = (faq.question || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+            const safeAnswer = (faq.answer || '').replace(/\n/g, '<br>');
+            html += `
+                <div class="faq-item-card" id="faq-${faq.id}">
+                    <button type="button" class="faq-question-btn" onclick="toggleFaqAccordion(${faq.id})" aria-expanded="true" aria-controls="faq-ans-${faq.id}">
+                        <div class="faq-title-wrap">
+                            <span class="badge badge-category badge-cat-sm">${escapeHtml(faq.category || '')}</span>
+                            <h3 class="faq-question-text">${escapeHtml(faq.question || '')}</h3>
+                        </div>
+                        <span class="faq-arrow-icon" id="faq-arrow-${faq.id}">&#9660;</span>
+                    </button>
+                    <div class="faq-answer-panel" id="faq-ans-${faq.id}" style="display: block;">
+                        <div class="faq-answer-content">
+                            <p>${safeAnswer}</p>
+                        </div>
+                        <div class="faq-meta-footer">
+                            ${faq.keywords ? `<span class="faq-keywords">Tags: <code>${escapeHtml(faq.keywords)}</code></span>` : ''}
+                            <button type="button" class="btn btn-sm btn-text-accent" onclick="sendQuickPrompt('Tell me more about: ${escapedQ}')">
+                                Discuss with Assistant &rarr;
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        accordionEl.innerHTML = html;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 </script>
 {% endblock %}

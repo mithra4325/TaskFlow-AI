@@ -1,30 +1,32 @@
 {% extends 'myapp/base.html' %}
 
-{% block title %}500 — Internal Server Error | DevHelp AI{% endblock %}
+{% block title %}500 — Something went wrong | TaskFlow AI{% endblock %}
 
 {% block content %}
 <div class="error-page-wrapper">
-    <div class="card error-page-card">
-        <div class="error-badge-pill error-badge-danger">HTTP 500</div>
-        <h1 class="error-page-title">Internal Server Error</h1>
-        <p class="error-page-desc">The server encountered an unexpected error and could not complete your request. Our automated logging system has recorded the incident.</p>
+    <div class="card error-page-card" id="error-card-500">
+        <div class="error-badge-pill error-badge-danger" id="error-badge-500">HTTP 500</div>
+        <h1 class="error-page-title" id="error-heading-500">Something went wrong</h1>
+        <p class="error-page-desc" id="error-desc-500">The server encountered an unexpected problem while processing your request. Our automated logging system has recorded the incident.</p>
         
         <div class="error-solutions-box">
             <h3>Troubleshooting Advice</h3>
             <ul>
-                <li>The problem is on the server side; your device or network is operating normally.</li>
-                <li>Try refreshing the page in a few moments.</li>
-                <li>If the problem persists, use the button below to submit a support ticket to our team.</li>
+                <li>The issue is on our server; your network and device are operating normally.</li>
+                <li>Try refreshing the page in a few moments using the Try Again button.</li>
+                <li>If the error persists, use the Assistant below or submit a support ticket so our team can resolve it.</li>
             </ul>
         </div>
 
         <div class="error-actions-row">
-            <a href="{% url 'home' %}" class="btn btn-primary">Return to Homepage</a>
-            <button type="button" class="btn btn-secondary" onclick="toggleChatWindow(true)">
-                Ask the Assistant
+            <button type="button" class="btn btn-primary" id="btn-try-again" onclick="window.location.reload()">
+                Try Again
             </button>
-            <a href="{% url 'error_guide' %}" class="btn btn-secondary">Error Code Guide</a>
-            <a href="{% url 'about' %}" class="btn btn-secondary">Submit Support Ticket</a>
+            <a href="{% url 'home' %}" class="btn btn-secondary" id="btn-go-home-500">Go Home</a>
+            <button type="button" class="btn btn-secondary" id="btn-ask-assistant-500" onclick="toggleChatWindow(true)">
+                Ask Assistant
+            </button>
+            <a href="{% url 'support' %}" class="btn btn-secondary" id="btn-support-500">Submit Support Ticket</a>
         </div>
     </div>
 </div>

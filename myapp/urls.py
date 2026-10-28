@@ -23,13 +23,16 @@ urlpatterns = [
     path('errors/', views.error_guide, name='error_guide'),
     path('errors/<str:code>/', views.error_detail, name='error_detail'),
 
-    # 8. Support (Ticket submission, status lookup, privacy protection)
+    # 8. Support (Ticket submission, status lookup, privacy protection, and CRUD)
     path('support/', views.support_view, name='support'),
+    path('support/ticket/<str:reference>/update/', views.ticket_update, name='ticket_update'),
+    path('support/ticket/<str:reference>/delete/', views.ticket_delete, name='ticket_delete'),
 
     # 9. About Application
     path('about/', views.about_view, name='about'),
 
-    # AI Chat, Feedback, Third-Party Docs Lookup, and Health
+    # AI Chat, Feedback, FAQs API, Third-Party Docs Lookup, and Health
+    path('api/faqs/', views.faq_api, name='faq_api'),
     path('api/chat/', views.chat_api, name='chat_api'),
     path('api/chat/feedback/', views.chat_feedback_api, name='chat_feedback_api'),
     path('api/tickets/create/', views.ticket_create_api, name='ticket_create_api'),

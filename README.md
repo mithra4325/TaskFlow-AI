@@ -62,20 +62,24 @@ Built with **Django 6**, **Google Gemini GenAI**, **MongoDB (NoSQL)**, **SQLite 
 - **Categories (`/categories/`)**: Workstream grouping (*Work*, *Study*, *Personal*, *Other*) with individual completion progress bars and quick task entry per category.
 
 ### 2. Developer Support & Knowledge Base
-- **FAQs (`/faqs/`)**: 12 verified questions and answers stored in SQL, categorized by Django, Python, Database, Web/HTTP, and Security, featuring category pills and search filtering.
+- **FAQs (`/faqs/` & `/api/faqs/`)**: 12 verified questions and answers stored in SQL, dynamically retrieved via a dedicated JSON API (`/api/faqs/`) with client-side loading, empty, and error states, category pills, and real-time search filtering.
 - **Error Code Guide (`/errors/` & `/errors/<code>/`)**: Reference documentation for HTTP status codes (400, 401, 403, 404, 429, 500, 503) and application error codes (DEV001) with root causes, diagnostic pointers, and remediation code snippets.
-- **Support Ticketing (`/support/`)**: SQL-persisted support tickets with honeypot anti-spam protection, CSRF validation, automated unique reference code generation (`TICK-XXXXXXXX`), and private reference status lookup.
+- **Support Ticketing (`/support/`)**: Full CRUD support ticketing:
+  - **Create**: Via web form, about page, or assistant escalation.
+  - **Read**: Private lookup tool using secure unique reference code (`TICK-XXXXXXXX`).
+  - **Update & Delete**: Authorized edit and cancel/delete controls enforcing session-based ownership.
+  - Honeypot anti-spam protection, CSRF validation, and meaningful validation feedback.
 - **About (`/about/`)**: Platform overview, architectural breakdown, technology stack, developer background, and support ticket submission form.
 
 ### 3. Database-Grounded AI Support Assistant
-- **Shared Floating Widget**: Compact, dark glass chat assistant widget accessible across all application pages and custom error pages.
+- **Shared Floating Widget**: Compact, dark glass chat assistant widget accessible across all application pages including custom 404 and 500 error pages.
 - **Context-Grounded Intelligence**: Queries verified SQL FAQ and Error Code records to answer technical inquiries without hallucinations.
 - **Escalation Workflow**: Offers support ticket creation when uncertain, escalating only upon explicit user confirmation.
 - **MongoDB Persistence**: Stores chat session logs and user feedback (thumbs up / thumbs down) in MongoDB with fail-soft offline handling.
 - **Quick Prompts & Reset**: One-click prompt pills for common questions and conversation reset button.
 
 ### 4. Custom Error Handling & Health Monitoring
-- **Custom Error Pages**: Styled 400, 403, 404, 429, 500, and 503 error pages maintaining full branding and assistant launcher.
+- **Custom Error Pages**: Styled 400, 403, 404, 429, 500, and 503 error pages. The 404 and 500 pages prominently feature clear headings, status badges, Go Home / Go Back / Try Again actions, and the fully functional AI Assistant widget.
 - **Health Check (`/health/`)**: Diagnostic JSON endpoint checking SQL database connectivity, MongoDB connection status, and Gemini AI configuration.
 
 ---
@@ -233,7 +237,7 @@ python manage.py check
 
 You should see:
 ```text
-Ran 27 tests in X.XXs
+Ran 32 tests in X.XXs
 OK
 System check identified no issues (0 silenced).
 ```

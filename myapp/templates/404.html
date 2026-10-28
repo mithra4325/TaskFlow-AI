@@ -1,1 +1,33 @@
-{% include 'myapp/404.html' %}
+{% extends 'myapp/base.html' %}
+
+{% block title %}404 — Page not found | TaskFlow AI{% endblock %}
+
+{% block content %}
+<div class="error-page-wrapper">
+    <div class="card error-page-card" id="error-card-404">
+        <div class="error-badge-pill" id="error-badge-404">HTTP 404</div>
+        <h1 class="error-page-title" id="error-heading-404">Page not found</h1>
+        <p class="error-page-desc" id="error-desc-404">The requested page does not exist or may have moved. Please check the URL in your address bar or return to the application dashboard.</p>
+        
+        <div class="error-solutions-box">
+            <h3>Diagnostic Tips</h3>
+            <ul>
+                <li>Check the address bar for accidental typos, trailing slashes, or invalid path parameters.</li>
+                <li>Browse our verified FAQs for help with TaskFlow features, categories, and task management.</li>
+                <li>Use the Assistant below to find resources or troubleshoot development questions.</li>
+            </ul>
+        </div>
+
+        <div class="error-actions-row">
+            <a href="{% url 'home' %}" class="btn btn-primary" id="btn-go-home">Go Home</a>
+            <button type="button" class="btn btn-secondary" id="btn-go-back" onclick="if(window.history.length > 1){window.history.back();}else{window.location.href='/';}">
+                Go Back
+            </button>
+            <button type="button" class="btn btn-secondary" id="btn-ask-assistant" onclick="toggleChatWindow(true)">
+                Ask Assistant
+            </button>
+            <a href="{% url 'faq_list' %}" class="btn btn-secondary" id="btn-faqs-404">Search FAQs</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,30 +1,32 @@
 {% extends 'myapp/base.html' %}
 
-{% block title %}404 — Page Not Found | DevHelp AI{% endblock %}
+{% block title %}404 — Page not found | TaskFlow AI{% endblock %}
 
 {% block content %}
 <div class="error-page-wrapper">
-    <div class="card error-page-card">
-        <div class="error-badge-pill">HTTP 404</div>
-        <h1 class="error-page-title">Page Not Found</h1>
-        <p class="error-page-desc">The requested resource could not be found at this address. The URL might have been moved, deleted, or entered incorrectly.</p>
+    <div class="card error-page-card" id="error-card-404">
+        <div class="error-badge-pill" id="error-badge-404">HTTP 404</div>
+        <h1 class="error-page-title" id="error-heading-404">Page not found</h1>
+        <p class="error-page-desc" id="error-desc-404">The requested page does not exist or may have moved. Please check the URL in your address bar or return to the application dashboard.</p>
         
         <div class="error-solutions-box">
-            <h3>How to Resolve This</h3>
+            <h3>Diagnostic Tips</h3>
             <ul>
-                <li>Check the URL spelling in your address bar for accidental typos or missing trailing slashes.</li>
-                <li>Search our developer knowledge base for the topic or error code you are looking for.</li>
-                <li>Ask the DevHelp AI Assistant below — it can direct you to the correct resource or create a support ticket.</li>
+                <li>Check the address bar for accidental typos, trailing slashes, or invalid path parameters.</li>
+                <li>Browse our verified FAQs for help with TaskFlow features, categories, and task management.</li>
+                <li>Use the Assistant below to find resources or troubleshoot development questions.</li>
             </ul>
         </div>
 
         <div class="error-actions-row">
-            <a href="{% url 'home' %}" class="btn btn-primary">Return to Homepage</a>
-            <button type="button" class="btn btn-secondary" onclick="toggleChatWindow(true)">
-                Ask the Assistant
+            <a href="{% url 'home' %}" class="btn btn-primary" id="btn-go-home">Go Home</a>
+            <button type="button" class="btn btn-secondary" id="btn-go-back" onclick="if(window.history.length > 1){window.history.back();}else{window.location.href='/';}">
+                Go Back
             </button>
-            <a href="{% url 'faq_list' %}" class="btn btn-secondary">Search FAQs</a>
-            <a href="{% url 'error_detail' '404' %}" class="btn btn-text">Read 404 Guide &rarr;</a>
+            <button type="button" class="btn btn-secondary" id="btn-ask-assistant" onclick="toggleChatWindow(true)">
+                Ask Assistant
+            </button>
+            <a href="{% url 'faq_list' %}" class="btn btn-secondary" id="btn-faqs-404">Search FAQs</a>
         </div>
     </div>
 </div>

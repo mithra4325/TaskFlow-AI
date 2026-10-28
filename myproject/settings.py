@@ -10,6 +10,7 @@ Configured for:
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -99,10 +100,11 @@ WSGI_APPLICATION = 'myproject.wsgi.application'
 
 
 # Database
-# Supports SQLite by default; seamlessly switches to PostgreSQL if DATABASE_URL is provided in deployment.
+# Supports SQLite by default and for automated test isolation; seamlessly switches to PostgreSQL if DATABASE_URL is provided in deployment.
 DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+IS_TESTING = 'test' in sys.argv
 
-if DATABASE_URL.startswith(('postgres://', 'postgresql://', 'postgresql+psycopg2://')):
+if DATABASE_URL.startswith(('postgres://', 'postgresql://', 'postgresql+psycopg2://')) and not IS_TESTING:
     # Extract PostgreSQL configuration safely (compatible with Neon, Supabase, Vercel Postgres, AWS RDS)
     import urllib.parse
     url = urllib.parse.urlparse(DATABASE_URL)

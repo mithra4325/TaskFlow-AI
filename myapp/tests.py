@@ -82,7 +82,16 @@ class PortalPagesAndDatabaseTestCase(TestCase):
         self.assertEqual(res_cat.context['total_count'], 1)
         self.assertContains(res_cat, "What causes a 404 error?")
 
-    def test_error_guide_and_detail(self):
+    @patch('myapp.views.lookup_package_docs')
+    def test_error_guide_and_detail(self, mock_lookup):
+        mock_lookup.return_value = {
+            'available': True,
+            'source': 'local_fallback_catalog',
+            'name': 'django',
+            'version': '6.0+',
+            'docs_url': 'https://docs.djangoproject.com/en/stable/',
+            'home_page': 'https://www.djangoproject.com/',
+        }
         res = self.client.get(reverse('error_guide'))
         self.assertEqual(res.status_code, 200)
         self.assertContains(res, "404")
@@ -329,7 +338,7 @@ class HealthEndpointTestCase(TestCase):
 
 
 class CustomErrorPagesTestCase(TestCase):
-    """Verify custom error templates (400, 403, 404, 429, 500, 503) and genuine 404 behavior."""
+    """Verify custom error templates (400, 403, 404, 429, 500, 503) and genuine 404 / 500 behavior."""
 
     def setUp(self):
         self.client = Client()
@@ -337,10 +346,47 @@ class CustomErrorPagesTestCase(TestCase):
     def test_genuinely_incorrect_url_returns_404_with_custom_template(self):
         response = self.client.get('/this-path-definitely-does-not-exist-xyz/')
         self.assertEqual(response.status_code, 404)
-        self.assertContains(response, "Page Not Found", status_code=404)
+        self.assertContains(response, "Page not found", status_code=404)
         self.assertContains(response, "HTTP 404", status_code=404)
-        self.assertContains(response, "Ask the Assistant", status_code=404)
-        self.assertContains(response, "Return to Homepage", status_code=404)
+        self.assertContains(response, "Go Home", status_code=404)
+        self.assertContains(response, "Go Back", status_code=404)
+        self.assertContains(response, "Ask Assistant", status_code=404)
+        # Assistant widget must be present
+        self.assertContains(response, 'id="devhelp-chat-widget"', status_code=404)
+        self.assertContains(response, 'id="chat-launcher-btn"', status_code=404)
+
+    def test_controlled_500_server_error_returns_custom_template(self):
+        response = self.client.get('/demo-error/500/')
+        self.assertEqual(response.status_code, 500)
+        self.assertContains(response, "Something went wrong", status_code=500)
+        self.assertContains(response, "HTTP 500", status_code=500)
+        self.assertContains(response, "Try Again", status_code=500)
+        self.assertContains(response, "Go Home", status_code=500)
+        self.assertContains(response, "Ask Assistant", status_code=500)
+        # Assistant widget must be present
+        self.assertContains(response, 'id="devhelp-chat-widget"', status_code=500)
+        self.assertContains(response, 'id="chat-launcher-btn"', status_code=500)
+
+    def test_assistant_accessible_and_submits_message_from_error_pages(self):
+        # 1. 404 page renders the functional chat widget
+        res_404 = self.client.get('/nonexistent-page-404/')
+        self.assertContains(res_404, 'chat-window', status_code=404)
+        self.assertContains(res_404, 'chat-user-input', status_code=404)
+
+        # 2. 500 page renders the functional chat widget
+        res_500 = self.client.get('/demo-error/500/')
+        self.assertContains(res_500, 'chat-window', status_code=500)
+        self.assertContains(res_500, 'chat-user-input', status_code=500)
+
+        # 3. Client can post questions via the chat API
+        chat_res = self.client.post(
+            reverse('chat_api'),
+            data=json.dumps({'message': 'Explain error 404'}),
+            content_type='application/json',
+        )
+        self.assertEqual(chat_res.status_code, 200)
+        data = chat_res.json()
+        self.assertIn('reply', data)
 
     def test_demo_error_pages_render(self):
         for code in ['400', '403', '404', '429', '500', '503']:
@@ -348,7 +394,102 @@ class CustomErrorPagesTestCase(TestCase):
             expected_status = int(code)
             self.assertEqual(res.status_code, expected_status)
             self.assertContains(res, f"HTTP {code}", status_code=expected_status)
-            self.assertContains(res, "DevHelp AI", status_code=expected_status)
+            self.assertContains(res, "TaskFlow", status_code=expected_status)
+
+
+class FAQApiTestCase(TestCase):
+    """Test SQL-backed FAQ API endpoint (/api/faqs/)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.faq1 = FAQ.objects.create(
+            question="How do I create a task?",
+            answer="Go to My Tasks and submit the form.",
+            category=FAQ.Category.GETTING_STARTED,
+            keywords="create, task",
+            is_published=True,
+        )
+        self.faq2 = FAQ.objects.create(
+            question="What is TaskFlow AI?",
+            answer="TaskFlow AI is a task management platform with an AI assistant.",
+            category=FAQ.Category.GETTING_STARTED,
+            keywords="overview",
+            is_published=True,
+        )
+
+    def test_faq_api_returns_json_records(self):
+        res = self.client.get(reverse('faq_api'))
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertGreaterEqual(data['total_count'], 2)
+        questions = [f['question'] for f in data['faqs']]
+        self.assertIn("How do I create a task?", questions)
+
+    def test_faq_api_filter_and_search(self):
+        res = self.client.get(reverse('faq_api') + '?q=create')
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data['total_count'], 1)
+        self.assertEqual(data['faqs'][0]['question'], "How do I create a task?")
+
+
+class SupportTicketCRUDTestCase(TestCase):
+    """Test ticket creation, lookup, ownership-based updates, and deletion."""
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_ticket_crud_lifecycle_with_authorization(self):
+        # 1. Create Ticket via form
+        post_res = self.client.post(reverse('support'), {
+            'subject': 'Database latency on high loads',
+            'description': 'Queries take more than 2 seconds.',
+            'name': 'Test User',
+            'email': 'user@example.com',
+        })
+        self.assertEqual(post_res.status_code, 302)
+        ticket = SupportTicket.objects.filter(subject='Database latency on high loads').first()
+        self.assertIsNotNone(ticket)
+        # Check session ownership
+        self.assertIn(ticket.reference, self.client.session.get('user_tickets', []))
+
+        # 2. Read / Lookup Ticket
+        lookup_res = self.client.get(f"{reverse('support')}?lookup_ref={ticket.reference}")
+        self.assertEqual(lookup_res.status_code, 200)
+        self.assertContains(lookup_res, ticket.reference)
+        self.assertContains(lookup_res, "Edit Ticket")
+
+        # 3. Update Ticket (Authorized)
+        update_url = reverse('ticket_update', args=[ticket.reference])
+        update_res = self.client.post(update_url, {
+            'subject': 'Database latency resolved',
+            'description': 'Added indexing, queries are fast now.',
+            'status': SupportTicket.Status.RESOLVED,
+        })
+        self.assertEqual(update_res.status_code, 302)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.subject, 'Database latency resolved')
+        self.assertEqual(ticket.status, SupportTicket.Status.RESOLVED)
+
+        # 4. Update Ticket (Unauthorized from different client)
+        other_client = Client()
+        unauth_update = other_client.post(update_url, {
+            'subject': 'Hacked subject',
+            'description': 'Malicious modification',
+        })
+        self.assertEqual(unauth_update.status_code, 403)
+
+        # 5. Delete Ticket (Unauthorized)
+        delete_url = reverse('ticket_delete', args=[ticket.reference])
+        unauth_delete = other_client.post(delete_url)
+        self.assertEqual(unauth_delete.status_code, 403)
+        self.assertTrue(SupportTicket.objects.filter(reference=ticket.reference).exists())
+
+        # 6. Delete Ticket (Authorized)
+        auth_delete = self.client.post(delete_url)
+        self.assertEqual(auth_delete.status_code, 302)
+        self.assertFalse(SupportTicket.objects.filter(reference=ticket.reference).exists())
 
 
 class SecurityAndCSRFTestCase(TestCase):

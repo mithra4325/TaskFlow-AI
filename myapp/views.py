@@ -393,6 +393,11 @@ def support_view(request):
         form = SupportTicketForm(request.POST)
         if form.is_valid():
             ticket = form.save()
+            user_tickets = request.session.get('user_tickets', [])
+            if ticket.reference not in user_tickets:
+                user_tickets.append(ticket.reference)
+            request.session['user_tickets'] = user_tickets
+            request.session.modified = True
             messages.success(
                 request,
                 f"Support ticket created successfully! Your reference code is: {ticket.reference}."
@@ -409,6 +414,7 @@ def support_view(request):
         'lookup_ticket': lookup_ticket,
         'lookup_ref': lookup_ref,
         'lookup_searched': lookup_searched,
+        'user_tickets': request.session.get('user_tickets', []),
         'is_gemini_configured': is_gemini_configured(),
     })
 
@@ -425,6 +431,11 @@ def about_view(request):
         form = SupportTicketForm(request.POST)
         if form.is_valid():
             ticket = form.save()
+            user_tickets = request.session.get('user_tickets', [])
+            if ticket.reference not in user_tickets:
+                user_tickets.append(ticket.reference)
+            request.session['user_tickets'] = user_tickets
+            request.session.modified = True
             messages.success(
                 request,
                 f"Support ticket created successfully! Your reference code is: {ticket.reference}."
@@ -587,12 +598,116 @@ def ticket_create_api(request):
         related_error_code=related_code,
         status=SupportTicket.Status.OPEN,
     )
+    user_tickets = request.session.get('user_tickets', [])
+    if ticket.reference not in user_tickets:
+        user_tickets.append(ticket.reference)
+    request.session['user_tickets'] = user_tickets
+    request.session.modified = True
 
     return JsonResponse({
         'success': True,
         'reference': ticket.reference,
         'subject': ticket.subject,
         'message': f"Support ticket {ticket.reference} created successfully.",
+    })
+
+
+def ticket_update(request, reference):
+    """Update an existing support ticket with authorization check."""
+    ticket = get_object_or_404(SupportTicket, reference__iexact=reference)
+    user_tickets = request.session.get('user_tickets', [])
+    is_authorized = (ticket.reference in user_tickets) or (request.user.is_authenticated and request.user.is_staff)
+
+    if not is_authorized:
+        return render(request, 'myapp/403.html', {
+            'error_title': 'Access Denied',
+            'error_message': 'You do not have permission to modify this support ticket.',
+        }, status=403)
+
+    if request.method == 'POST':
+        subject = request.POST.get('subject', '').strip()
+        description = request.POST.get('description', '').strip()
+        status_val = request.POST.get('status', '').strip()
+        if subject:
+            ticket.subject = subject[:255]
+        if description:
+            ticket.description = description
+        if status_val in [s[0] for s in SupportTicket.Status.choices]:
+            ticket.status = status_val
+        ticket.save()
+        messages.success(request, f"Ticket {ticket.reference} was updated successfully.")
+        return redirect(f"/support/?lookup_ref={ticket.reference}")
+
+    return render(request, 'myapp/support_ticket_edit.html', {
+        'ticket': ticket,
+        'status_choices': SupportTicket.Status.choices,
+    })
+
+
+def ticket_delete(request, reference):
+    """Delete / cancel a support ticket with authorization check."""
+    ticket = get_object_or_404(SupportTicket, reference__iexact=reference)
+    user_tickets = request.session.get('user_tickets', [])
+    is_authorized = (ticket.reference in user_tickets) or (request.user.is_authenticated and request.user.is_staff)
+
+    if not is_authorized:
+        return render(request, 'myapp/403.html', {
+            'error_title': 'Access Denied',
+            'error_message': 'You do not have permission to delete this support ticket.',
+        }, status=403)
+
+    if request.method == 'POST':
+        ref = ticket.reference
+        ticket.delete()
+        if ref in user_tickets:
+            user_tickets.remove(ref)
+            request.session['user_tickets'] = user_tickets
+            request.session.modified = True
+        messages.success(request, f"Ticket {ref} has been removed.")
+        return redirect('support')
+
+    return redirect(f"/support/?lookup_ref={ticket.reference}")
+
+
+@require_GET
+def faq_api(request):
+    """Machine-readable and AJAX API returning verified FAQ records from the SQL database."""
+    base_qs = FAQ.objects.filter(is_published=True)
+
+    category = request.GET.get('category', '').strip()
+    if category:
+        base_qs = base_qs.filter(category=category)
+
+    query = request.GET.get('q', '').strip()
+    if query:
+        base_qs = base_qs.filter(
+            Q(question__icontains=query) |
+            Q(answer__icontains=query) |
+            Q(keywords__icontains=query)
+        )
+
+    faq_records = []
+    for f in base_qs:
+        faq_records.append({
+            'id': f.id,
+            'question': f.question,
+            'answer': f.answer,
+            'category': f.category,
+            'keywords': f.keywords,
+        })
+
+    categories_data = [
+        {'code': code, 'label': label}
+        for code, label in FAQ.Category.choices
+    ]
+
+    return JsonResponse({
+        'status': 'success',
+        'faqs': faq_records,
+        'total_count': len(faq_records),
+        'categories': categories_data,
+        'selected_category': category,
+        'search_query': query,
     })
 
 
@@ -671,12 +786,20 @@ def custom_permission_denied_view(request, exception=None):
 
 def custom_page_not_found_view(request, exception=None):
     """Custom 404 Not Found error view."""
-    return render(request, 'myapp/404.html', status=404)
+    return render(request, '404.html', status=404)
 
 
 def custom_server_error_view(request):
     """Custom 500 Internal Server Error view."""
-    return render(request, 'myapp/500.html', status=500)
+    try:
+        return render(request, '500.html', status=500)
+    except Exception as exc:
+        logger.error(f"Error rendering custom 500 template: {exc}", exc_info=True)
+        from django.http import HttpResponseServerError
+        return HttpResponseServerError(
+            "<!DOCTYPE html><html><head><title>500 - Server Error</title></head><body><h1>Something went wrong</h1><p>The server encountered an unexpected error.</p></body></html>",
+            content_type="text/html"
+        )
 
 
 # ==============================================================================
