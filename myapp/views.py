@@ -392,7 +392,14 @@ def support_view(request):
     if request.method == 'POST':
         form = SupportTicketForm(request.POST)
         if form.is_valid():
-            ticket = form.save()
+            ticket = form.save(commit=False)
+            if request.user.is_authenticated and hasattr(ticket, 'user'):
+                ticket.user = request.user
+                if not ticket.name or ticket.name == "Anonymous Visitor":
+                    ticket.name = request.user.get_full_name() or request.user.username
+                if not ticket.email and request.user.email:
+                    ticket.email = request.user.email
+            ticket.save()
             user_tickets = request.session.get('user_tickets', [])
             if ticket.reference not in user_tickets:
                 user_tickets.append(ticket.reference)
@@ -408,13 +415,22 @@ def support_view(request):
     else:
         form = SupportTicketForm()
 
+    user_tickets = list(request.session.get('user_tickets', []))
+    if request.user.is_authenticated and hasattr(SupportTicket, 'user'):
+        user_db_tickets = list(SupportTicket.objects.filter(user=request.user).values_list('reference', flat=True))
+        for ref in user_db_tickets:
+            if ref not in user_tickets:
+                user_tickets.append(ref)
+        request.session['user_tickets'] = user_tickets
+        request.session.modified = True
+
     return render(request, 'myapp/support.html', {
         'form': form,
         'submitted_ticket': submitted_ticket,
         'lookup_ticket': lookup_ticket,
         'lookup_ref': lookup_ref,
         'lookup_searched': lookup_searched,
-        'user_tickets': request.session.get('user_tickets', []),
+        'user_tickets': user_tickets,
         'is_gemini_configured': is_gemini_configured(),
     })
 
@@ -430,7 +446,14 @@ def about_view(request):
     if request.method == 'POST':
         form = SupportTicketForm(request.POST)
         if form.is_valid():
-            ticket = form.save()
+            ticket = form.save(commit=False)
+            if request.user.is_authenticated and hasattr(ticket, 'user'):
+                ticket.user = request.user
+                if not ticket.name or ticket.name == "Anonymous Visitor":
+                    ticket.name = request.user.get_full_name() or request.user.username
+                if not ticket.email and request.user.email:
+                    ticket.email = request.user.email
+            ticket.save()
             user_tickets = request.session.get('user_tickets', [])
             if ticket.reference not in user_tickets:
                 user_tickets.append(ticket.reference)
@@ -514,7 +537,11 @@ def chat_api(request):
     request.session[session_key] = session_data
 
     # Generate assistant reply grounded in database
-    ai_result = generate_support_assistant_response(user_message, conversation_history=history)
+    ai_result = generate_support_assistant_response(
+        user_message,
+        conversation_history=history,
+        user=request.user,
+    )
 
     # Persist interaction into MongoDB
     mongo_success, log_id = log_chat_interaction(
@@ -528,6 +555,17 @@ def chat_api(request):
 
     if not mongo_success:
         logger.warning(f"[Chat API] MongoDB chat log was NOT saved for conversation {conversation_id[:16]}: {log_id}")
+
+    # Ensure tickets created through chat escalation are recorded in session ownership
+    if ai_result.get('ticket_created') and ai_result.get('ticket_reference'):
+        ticket_ref = ai_result['ticket_reference']
+        user_tickets = request.session.get('user_tickets', [])
+        if ticket_ref not in user_tickets:
+            user_tickets.append(ticket_ref)
+        request.session['user_tickets'] = user_tickets
+        request.session.modified = True
+        if not request.session.session_key:
+            request.session.save()
 
     return JsonResponse({
         'reply': ai_result['reply'],
@@ -590,19 +628,29 @@ def ticket_create_api(request):
     if not description:
         return JsonResponse({'error': 'Description is required to create a ticket.'}, status=400)
 
-    ticket = SupportTicket.objects.create(
-        name=name,
-        email=email,
-        subject=subject,
-        description=description,
-        related_error_code=related_code,
-        status=SupportTicket.Status.OPEN,
-    )
+    ticket_kwargs = {
+        'name': name,
+        'email': email,
+        'subject': subject,
+        'description': description,
+        'related_error_code': related_code,
+        'status': SupportTicket.Status.OPEN,
+    }
+    if request.user.is_authenticated and hasattr(SupportTicket, 'user'):
+        ticket_kwargs['user'] = request.user
+        if name in ('', 'Anonymous Visitor'):
+            ticket_kwargs['name'] = request.user.get_full_name() or request.user.username
+        if not email and request.user.email:
+            ticket_kwargs['email'] = request.user.email
+
+    ticket = SupportTicket.objects.create(**ticket_kwargs)
     user_tickets = request.session.get('user_tickets', [])
     if ticket.reference not in user_tickets:
         user_tickets.append(ticket.reference)
     request.session['user_tickets'] = user_tickets
     request.session.modified = True
+    if not request.session.session_key:
+        request.session.save()
 
     return JsonResponse({
         'success': True,
@@ -612,13 +660,29 @@ def ticket_create_api(request):
     })
 
 
+def is_ticket_authorized(ticket, request):
+    """Check if the requesting session or user owns the ticket, or has staff privileges.
+    
+    Safe for tickets with missing ownership (unowned/legacy), preventing unauthorized
+    modifications while allowing staff access.
+    """
+    if not ticket:
+        return False
+    user_tickets = request.session.get('user_tickets', [])
+    if ticket.reference in user_tickets:
+        return True
+    if request.user.is_authenticated:
+        if request.user.is_staff:
+            return True
+        if hasattr(ticket, 'user') and ticket.user_id is not None and ticket.user_id == request.user.id:
+            return True
+    return False
+
+
 def ticket_update(request, reference):
     """Update an existing support ticket with authorization check."""
     ticket = get_object_or_404(SupportTicket, reference__iexact=reference)
-    user_tickets = request.session.get('user_tickets', [])
-    is_authorized = (ticket.reference in user_tickets) or (request.user.is_authenticated and request.user.is_staff)
-
-    if not is_authorized:
+    if not is_ticket_authorized(ticket, request):
         return render(request, 'myapp/403.html', {
             'error_title': 'Access Denied',
             'error_message': 'You do not have permission to modify this support ticket.',
@@ -647,10 +711,7 @@ def ticket_update(request, reference):
 def ticket_delete(request, reference):
     """Delete / cancel a support ticket with authorization check."""
     ticket = get_object_or_404(SupportTicket, reference__iexact=reference)
-    user_tickets = request.session.get('user_tickets', [])
-    is_authorized = (ticket.reference in user_tickets) or (request.user.is_authenticated and request.user.is_staff)
-
-    if not is_authorized:
+    if not is_ticket_authorized(ticket, request):
         return render(request, 'myapp/403.html', {
             'error_title': 'Access Denied',
             'error_message': 'You do not have permission to delete this support ticket.',
@@ -659,6 +720,7 @@ def ticket_delete(request, reference):
     if request.method == 'POST':
         ref = ticket.reference
         ticket.delete()
+        user_tickets = request.session.get('user_tickets', [])
         if ref in user_tickets:
             user_tickets.remove(ref)
             request.session['user_tickets'] = user_tickets

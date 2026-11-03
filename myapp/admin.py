@@ -34,7 +34,7 @@ class ErrorCodeAdmin(admin.ModelAdmin):
 
 @admin.register(SupportTicket)
 class SupportTicketAdmin(admin.ModelAdmin):
-    list_display = ('reference', 'subject', 'status', 'name', 'email', 'created_at')
-    list_filter = ('status', 'created_at')
+    list_display = ('reference', 'subject', 'status', 'name', 'email', 'user', 'created_at')
+    list_filter = ('status', 'created_at', 'user')
     search_fields = ('reference', 'subject', 'description', 'email', 'name')
     readonly_fields = ('reference', 'created_at', 'updated_at')

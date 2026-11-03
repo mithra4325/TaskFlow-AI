@@ -1,4 +1,5 @@
 import uuid
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -127,6 +128,13 @@ class SupportTicket(models.Model):
         RESOLVED = 'Resolved', 'Resolved'
 
     reference = models.CharField(max_length=32, unique=True, db_index=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='support_tickets',
+    )
     name = models.CharField(max_length=100, blank=True, default="Anonymous Visitor")
     email = models.EmailField(blank=True, default="")
     subject = models.CharField(max_length=255)

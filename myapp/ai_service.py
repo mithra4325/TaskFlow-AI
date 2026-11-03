@@ -208,12 +208,13 @@ RULES:
 """
 
 
-def generate_support_assistant_response(user_message: str, conversation_history: list = None) -> dict:
+def generate_support_assistant_response(user_message: str, conversation_history: list = None, user=None) -> dict:
     """Generate a database-grounded response from DevHelp AI Support Assistant.
 
     Args:
         user_message: The visitor's incoming chat message.
         conversation_history: List of recent chat dicts [{'role': 'user'|'assistant', 'text': ...}]
+        user: Optional authenticated User instance to associate ticket ownership.
 
     Returns:
         dict with:
@@ -239,11 +240,21 @@ def generate_support_assistant_response(user_message: str, conversation_history:
 
     # Detect if user is explicitly agreeing to ticket creation
     user_lower = sanitized_message.lower()
-    ticket_intent = any(phrase in user_lower for phrase in [
+    user_clean = re.sub(r'[^\w\s]', ' ', user_lower)
+    user_normalized = ' '.join(user_clean.split())
+
+    ticket_phrases = [
         'create a ticket', 'open a ticket', 'open ticket', 'create ticket',
-        'submit ticket', 'yes please create', 'yes open ticket', 'yes create a ticket',
-        'yes please open', 'yes please', 'yes create ticket'
-    ])
+        'submit ticket', 'submit a ticket', 'yes please create', 'yes open ticket',
+        'yes create a ticket', 'yes please open', 'yes please', 'yes create ticket',
+        'open a support ticket', 'open support ticket', 'create support ticket',
+        'create a support ticket', 'open support', 'create support', 'support ticket',
+    ]
+    ticket_intent = (
+        any(phrase in user_lower for phrase in ticket_phrases) or
+        any(phrase in user_normalized for phrase in ticket_phrases) or
+        ('ticket' in user_normalized and any(w in user_normalized for w in ['open', 'create', 'submit', 'yes']))
+    )
 
     if ticket_intent:
         # Determine subject from recent history or message
@@ -254,12 +265,24 @@ def generate_support_assistant_response(user_message: str, conversation_history:
                     subject = turn.get('text', '')[:100]
                     break
 
-        ticket = SupportTicket.objects.create(
-            name="Chat Visitor",
-            subject=f"Chat Inquiry: {subject}",
-            description=f"Automated support ticket created via DevHelp AI Assistant.\nVisitor Query: {sanitized_message}",
-            status=SupportTicket.Status.OPEN,
-        )
+        user_is_auth = bool(user and getattr(user, 'is_authenticated', False))
+        ticket_name = "Chat Visitor"
+        ticket_email = ""
+        if user_is_auth:
+            ticket_name = (user.get_full_name() or getattr(user, 'username', '')) or "Chat Visitor"
+            ticket_email = getattr(user, 'email', '') or ""
+
+        ticket_kwargs = {
+            'name': ticket_name,
+            'email': ticket_email,
+            'subject': f"Chat Inquiry: {subject}",
+            'description': f"Automated support ticket created via DevHelp AI Assistant.\nVisitor Query: {sanitized_message}",
+            'status': SupportTicket.Status.OPEN,
+        }
+        if hasattr(SupportTicket, 'user') and user_is_auth:
+            ticket_kwargs['user'] = user
+
+        ticket = SupportTicket.objects.create(**ticket_kwargs)
         return {
             'reply': (
                 f"### Support Ticket Created Successfully!\n\n"

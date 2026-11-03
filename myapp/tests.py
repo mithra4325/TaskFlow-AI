@@ -2,6 +2,7 @@ from datetime import date, timedelta
 import json
 from unittest.mock import patch, MagicMock
 
+from django.contrib.auth.models import User
 from django.test import TestCase, Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -490,6 +491,222 @@ class SupportTicketCRUDTestCase(TestCase):
         auth_delete = self.client.post(delete_url)
         self.assertEqual(auth_delete.status_code, 302)
         self.assertFalse(SupportTicket.objects.filter(reference=ticket.reference).exists())
+
+    def test_chat_escalation_ticket_crud_and_session_ownership(self):
+        """Verify chat escalation tickets receive session ownership and support full CRUD."""
+        # 1. Create Ticket via Chat Escalation API
+        history = [{'role': 'user', 'text': 'How do I resolve database lock errors?'}]
+        chat_res = self.client.post(
+            reverse('chat_api'),
+            data=json.dumps({
+                'message': 'Yes, please open a support ticket for my inquiry',
+                'conversation_id': 'test_chat_session_123',
+                'history': history,
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(chat_res.status_code, 200)
+        data = chat_res.json()
+        self.assertTrue(data['ticket_created'])
+        ticket_ref = data['ticket_reference']
+        self.assertIsNotNone(ticket_ref)
+        self.assertTrue(ticket_ref.startswith('TICK-'))
+
+        ticket = SupportTicket.objects.filter(reference=ticket_ref).first()
+        self.assertIsNotNone(ticket)
+        self.assertEqual(ticket.status, SupportTicket.Status.OPEN)
+
+        # Verify Session Ownership is present
+        user_tickets = self.client.session.get('user_tickets', [])
+        self.assertIn(ticket_ref, user_tickets)
+
+        # 2. Retrieve / Lookup Ticket (Authorized Owner)
+        lookup_res = self.client.get(f"{reverse('support')}?lookup_ref={ticket_ref}")
+        self.assertEqual(lookup_res.status_code, 200)
+        self.assertContains(lookup_res, ticket_ref)
+        self.assertContains(lookup_res, "Edit Ticket")
+        self.assertContains(lookup_res, "Delete Ticket")
+
+        # 3. Retrieve Edit Form (Authorized)
+        update_url = reverse('ticket_update', args=[ticket_ref])
+        edit_get_res = self.client.get(update_url)
+        self.assertEqual(edit_get_res.status_code, 200)
+        self.assertContains(edit_get_res, f"Edit Ticket: {ticket_ref}")
+
+        # 4. Update Ticket (Authorized)
+        update_post_res = self.client.post(update_url, {
+            'subject': 'Database lock issue under investigation',
+            'description': 'Added deadlock retry logic and indexed foreign keys.',
+            'status': SupportTicket.Status.IN_PROGRESS,
+        })
+        self.assertEqual(update_post_res.status_code, 302)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.subject, 'Database lock issue under investigation')
+        self.assertEqual(ticket.status, SupportTicket.Status.IN_PROGRESS)
+
+        # 5. Delete Ticket (Authorized)
+        delete_url = reverse('ticket_delete', args=[ticket_ref])
+        auth_delete = self.client.post(delete_url)
+        self.assertEqual(auth_delete.status_code, 302)
+        self.assertFalse(SupportTicket.objects.filter(reference=ticket_ref).exists())
+        self.assertNotIn(ticket_ref, self.client.session.get('user_tickets', []))
+
+    def test_chat_escalation_ticket_unauthorized_access_prevented(self):
+        """Verify another user cannot edit or delete a chat-escalated ticket."""
+        # Create ticket with client 1
+        chat_res = self.client.post(
+            reverse('chat_api'),
+            data=json.dumps({
+                'message': 'Open a ticket for performance tuning',
+                'conversation_id': 'sess_alice',
+            }),
+            content_type='application/json',
+        )
+        self.assertEqual(chat_res.status_code, 200)
+        ticket_ref = chat_res.json()['ticket_reference']
+
+        # Client 2 attempts to inspect and modify
+        other_client = Client()
+        lookup_res = other_client.get(f"{reverse('support')}?lookup_ref={ticket_ref}")
+        self.assertEqual(lookup_res.status_code, 200)
+        self.assertContains(lookup_res, ticket_ref)
+        self.assertNotContains(lookup_res, "Edit Ticket")
+        self.assertNotContains(lookup_res, "Delete Ticket")
+
+        # Client 2 attempts GET update -> 403 Forbidden
+        update_url = reverse('ticket_update', args=[ticket_ref])
+        unauth_get = other_client.get(update_url)
+        self.assertEqual(unauth_get.status_code, 403)
+        self.assertContains(unauth_get, "HTTP 403", status_code=403)
+
+        # Client 2 attempts POST update -> 403 Forbidden
+        unauth_post = other_client.post(update_url, {
+            'subject': 'Hijacked Ticket',
+            'description': 'Tampered description',
+            'status': SupportTicket.Status.RESOLVED,
+        })
+        self.assertEqual(unauth_post.status_code, 403)
+
+        # Client 2 attempts POST delete -> 403 Forbidden
+        delete_url = reverse('ticket_delete', args=[ticket_ref])
+        unauth_delete = other_client.post(delete_url)
+        self.assertEqual(unauth_delete.status_code, 403)
+        self.assertTrue(SupportTicket.objects.filter(reference=ticket_ref).exists())
+
+    def test_existing_ticket_missing_ownership_handled_safely(self):
+        """Verify legacy/unowned tickets safely reject non-staff edits without exceptions."""
+        orphan_ticket = SupportTicket.objects.create(
+            name="Orphan Visitor",
+            subject="Legacy Unowned Ticket",
+            description="Created prior to ownership tracking.",
+            status=SupportTicket.Status.OPEN,
+        )
+
+        unauth_client = Client()
+
+        # Lookup works safely without owner actions
+        lookup_res = unauth_client.get(f"{reverse('support')}?lookup_ref={orphan_ticket.reference}")
+        self.assertEqual(lookup_res.status_code, 200)
+        self.assertContains(lookup_res, orphan_ticket.reference)
+        self.assertNotContains(lookup_res, "Edit Ticket")
+        self.assertNotContains(lookup_res, "Delete Ticket")
+
+        # Non-staff update is safely rejected with 403
+        update_url = reverse('ticket_update', args=[orphan_ticket.reference])
+        unauth_update = unauth_client.post(update_url, {
+            'subject': 'Attempted unauthorized modification',
+            'description': 'Should fail',
+            'status': SupportTicket.Status.RESOLVED,
+        })
+        self.assertEqual(unauth_update.status_code, 403)
+
+        # Non-staff delete is safely rejected with 403
+        delete_url = reverse('ticket_delete', args=[orphan_ticket.reference])
+        unauth_delete = unauth_client.post(delete_url)
+        self.assertEqual(unauth_delete.status_code, 403)
+        self.assertTrue(SupportTicket.objects.filter(reference=orphan_ticket.reference).exists())
+
+        # Staff user can safely manage orphaned tickets
+        staff_user = User.objects.create_superuser(
+            username='admin_staff',
+            email='admin@example.com',
+            password='admin_secure_pass_123',
+        )
+        staff_client = Client()
+        staff_client.force_login(staff_user)
+
+        staff_lookup = staff_client.get(f"{reverse('support')}?lookup_ref={orphan_ticket.reference}")
+        self.assertEqual(staff_lookup.status_code, 200)
+        self.assertContains(staff_lookup, "Edit Ticket")
+
+        staff_update = staff_client.post(update_url, {
+            'subject': 'Admin resolved legacy ticket',
+            'description': 'Resolved by support team.',
+            'status': SupportTicket.Status.RESOLVED,
+        })
+        self.assertEqual(staff_update.status_code, 302)
+        orphan_ticket.refresh_from_db()
+        self.assertEqual(orphan_ticket.status, SupportTicket.Status.RESOLVED)
+
+        staff_delete = staff_client.post(delete_url)
+        self.assertEqual(staff_delete.status_code, 302)
+        self.assertFalse(SupportTicket.objects.filter(reference=orphan_ticket.reference).exists())
+
+    def test_authenticated_user_ticket_ownership_association(self):
+        """Verify authenticated users are linked to tickets and authorized across sessions."""
+        user1 = User.objects.create_user(
+            username='alice_dev',
+            email='alice@example.com',
+            password='secure_alice_pass_123',
+        )
+        user2 = User.objects.create_user(
+            username='bob_dev',
+            email='bob@example.com',
+            password='secure_bob_pass_123',
+        )
+
+        alice_client = Client()
+        alice_client.force_login(user1)
+
+        # 1. Alice creates ticket via chat escalation
+        chat_res = alice_client.post(
+            reverse('chat_api'),
+            data=json.dumps({'message': 'Please create a ticket for high memory usage'}),
+            content_type='application/json',
+        )
+        self.assertEqual(chat_res.status_code, 200)
+        ticket_ref = chat_res.json()['ticket_reference']
+
+        ticket = SupportTicket.objects.get(reference=ticket_ref)
+        self.assertEqual(ticket.user, user1)
+        self.assertEqual(ticket.name, 'alice_dev')
+        self.assertEqual(ticket.email, 'alice@example.com')
+        self.assertIn(ticket_ref, alice_client.session.get('user_tickets', []))
+
+        # 2. Alice can update her ticket
+        update_url = reverse('ticket_update', args=[ticket_ref])
+        alice_update = alice_client.post(update_url, {
+            'subject': 'Memory leak identified and patched',
+            'description': 'Fixed circular reference in background task worker.',
+            'status': SupportTicket.Status.RESOLVED,
+        })
+        self.assertEqual(alice_update.status_code, 302)
+        ticket.refresh_from_db()
+        self.assertEqual(ticket.status, SupportTicket.Status.RESOLVED)
+
+        # 3. Bob (different authenticated user) cannot modify Alice's ticket
+        bob_client = Client()
+        bob_client.force_login(user2)
+        bob_update = bob_client.post(update_url, {
+            'subject': 'Bob tampering',
+            'description': 'Malicious payload',
+            'status': SupportTicket.Status.OPEN,
+        })
+        self.assertEqual(bob_update.status_code, 403)
+
+        bob_delete = bob_client.post(reverse('ticket_delete', args=[ticket_ref]))
+        self.assertEqual(bob_delete.status_code, 403)
+        self.assertTrue(SupportTicket.objects.filter(reference=ticket_ref).exists())
 
 
 class SecurityAndCSRFTestCase(TestCase):
